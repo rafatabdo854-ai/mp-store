@@ -183,6 +183,35 @@
 
 <div id="toasts"></div>
 
+<!-- مُبلِّغ الأخطاء: يعرض أي عطل في التحميل على الشاشة مباشرة -->
+<script>
+(function () {
+  function report(text) {
+    var box = document.getElementById("loginError");
+    if (!box) return;
+    box.hidden = false;
+    box.textContent = String(text).slice(0, 300);
+  }
+  window.addEventListener("error", function (e) {
+    if (e.target && e.target.tagName === "SCRIPT") {
+      report("تعذّر تحميل ملف: " + (e.target.src || ""));
+    } else if (e.message) {
+      report("خطأ: " + e.message + " — " + (e.filename || "").split("/").slice(-2).join("/"));
+    }
+  }, true);
+  window.addEventListener("unhandledrejection", function (e) {
+    report("فشل غير معالَج: " + (e.reason && e.reason.message ? e.reason.message : e.reason));
+  });
+  // إن لم يبدأ التطبيق خلال ١٢ ثانية فالسبب غالبًا ملف لم يُحمَّل
+  setTimeout(function () {
+    var lamp = document.getElementById("lampDb");
+    if (lamp && !lamp.dataset.on) {
+      report("لم يبدأ تشغيل الكود. تأكد من رفع مجلد src بالكامل، وأن المتصفح يصل إلى cdn.jsdelivr.net");
+    }
+  }, 12000);
+})();
+</script>
+
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
