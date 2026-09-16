@@ -1,0 +1,9 @@
+/* أنماط الطباعة — تُستخدم في نوافذ طباعة الأذون والتقارير */
+@media print {
+  .topbar, .tabs, .toolbar, .row-actions, .btn, #toasts { display: none !important; }
+  .panel { border: 0; box-shadow: none; padding: 0; }
+  body { background: #fff; }
+  table { font-size: 11pt; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+}

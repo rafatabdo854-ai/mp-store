@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#13303B">
+<title>نظام إدارة مخزن مستلزمات الكهرباء</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="./assets/css/main.css">
+<link rel="stylesheet" href="./assets/css/login.css">
+<link rel="stylesheet" href="./assets/css/print.css">
+</head>
+<body class="is-locked">
+
+<!-- ============ شاشة الدخول: لوحة توزيع كهربائية ============ -->
+<div class="login-scene" id="loginScene">
+  <div class="busbars"><span></span><span></span><span></span></div>
+
+  <div class="enclosure">
+    <span class="screw tl"></span><span class="screw tr"></span>
+    <span class="screw bl"></span><span class="screw br"></span>
+
+    <div class="nameplate">
+      <div class="title">مخزن مستلزمات الكهرباء</div>
+      <div class="sub">MP-STORE / v10</div>
+    </div>
+
+    <div class="lamp-bank">
+      <div class="lamp-unit"><span class="lamp" id="lampDb"></span> الخادم</div>
+      <div class="lamp-unit"><span class="lamp" id="lampCred" data-on="amber"></span> البيانات</div>
+      <div class="lamp-unit"><span class="lamp" id="lampSess"></span> الجلسة</div>
+    </div>
+
+    <form id="loginForm" autocomplete="on">
+      <div class="login-field">
+        <label for="loginUsername">اسم المستخدم</label>
+        <input id="loginUsername" name="username" type="text" dir="ltr"
+               autocomplete="username" placeholder="admin" required>
+      </div>
+      <div class="login-field">
+        <label for="loginPassword">كلمة المرور</label>
+        <input id="loginPassword" name="password" type="password" dir="ltr"
+               autocomplete="current-password" placeholder="••••••••" required>
+      </div>
+      <div class="login-hint" id="loginHint"></div>
+
+      <!-- خط التغذية: يضيء عند اكتمال البيانات -->
+      <svg class="circuit" id="circuit" viewBox="0 0 300 34" aria-hidden="true">
+        <path class="track" d="M8 17 H120 L140 6 H180 L200 17 H292"></path>
+        <path class="live"  d="M8 17 H120 L140 6 H180 L200 17 H292"></path>
+        <circle class="node" cx="8" cy="17" r="3.5"></circle>
+        <circle class="node" cx="292" cy="17" r="3.5"></circle>
+      </svg>
+
+      <button type="button" class="breaker" id="breaker" data-state="off" disabled>
+        <span class="slot">
+          <span class="lever"></span>
+          <span class="marks"><span>I</span><span>O</span></span>
+        </span>
+        <span class="text">
+          <span class="cap">غلق القاطع</span><br>
+          <span class="sub">بانتظار بيانات الدخول</span>
+        </span>
+      </button>
+
+      <div class="login-error" id="loginError" hidden></div>
+      <div class="setup-note" id="setupNote" hidden></div>
+    </form>
+
+    <div class="login-foot">
+      <span>الدخول يُسجَّل باسمك في سجل الحركات</span>
+      <span>Minapharm</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ التطبيق ============ -->
+<div class="app-shell" id="appShell">
+
+  <header class="topbar">
+    <h1>نظام إدارة مخزن مستلزمات الكهرباء</h1>
+    <span class="spacer"></span>
+    <span class="conn" id="connBadge" data-state="syncing">
+      <span class="lamp"></span><span class="conn-text">جارٍ الاتصال</span>
+    </span>
+    <button class="btn ghost small" id="btnRefresh">تحديث</button>
+    <div class="whoami">
+      <span id="userName">—</span>
+      <span class="role-chip" id="userRole">—</span>
+      <button class="btn ghost small" id="btnLogout">خروج</button>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="أقسام النظام">
+    <button data-view="dashboard">لوحة القيادة</button>
+    <button data-view="items">الأصناف</button>
+    <button data-view="voucherIn">إذن وارد</button>
+    <button data-view="voucherOut">إذن صرف</button>
+    <button data-view="log">سجل الحركات</button>
+    <button data-view="reports">التقارير</button>
+    <button data-view="pricing">التسعير</button>
+    <button data-view="stocktake">الجرد</button>
+    <button data-view="settings">الإعدادات</button>
+  </nav>
+
+  <main>
+    <!-- لوحة القيادة -->
+    <section class="view" id="view-dashboard">
+      <div class="stat-grid" id="dashCards"></div>
+
+      <div class="panel">
+        <h2>الأصناف الأكثر صرفًا خلال ٩٠ يومًا</h2>
+        <div id="dashTopBars"></div>
+      </div>
+
+      <div class="panel">
+        <h2>الأرصدة حسب الفئة</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>الفئة</th><th class="center">عدد الأصناف</th><th class="center">إجمالي الكمية</th>
+              <th data-col="value">القيمة</th>
+            </tr></thead>
+            <tbody id="dashCategoryBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>آخر الحركات</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>النوع</th><th>رقم الإذن</th><th>التاريخ</th><th>الصنف</th>
+              <th class="center">الكمية</th><th>الجهة / المشروع</th><th>بواسطة</th>
+            </tr></thead>
+            <tbody id="dashRecentBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- الأصناف -->
+    <section class="view" id="view-items">
+      <div class="panel">
+        <div class="panel-head">
+          <h2 style="border:0;margin:0;padding:0;background:none">قائمة الأصناف</h2>
+          <span class="spacer"></span>
+          <button class="btn ghost small" id="btnExportItems">تنزيل Excel</button>
+          <button class="btn ghost small" id="btnPrintItems">طباعة</button>
+          <button class="btn small" id="btnAddItem">إضافة صنف</button>
+        </div>
+        <div class="toolbar">
+          <input type="search" id="itemSearch" placeholder="بحث بالكود، الاسم، الماركة، المواصفة">
+          <select id="itemCategoryFilter"><option value="">كل الفئات</option></select>
+          <select id="itemStockFilter">
+            <option value="">كل الأرصدة</option>
+            <option value="ok">متاح</option>
+            <option value="low">تحت الحد الأدنى</option>
+            <option value="zero">نفد من المخزن</option>
+          </select>
+          <span class="hint" id="itemsCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>الكود</th><th>الصنف</th><th>الفئة</th><th class="center">الوحدة</th>
+              <th class="center">الرصيد</th><th class="center">الحد الأدنى</th><th class="center">الحالة</th>
+              <th data-col="price">سعر الوحدة</th><th>إجراء</th>
+            </tr></thead>
+            <tbody id="itemsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- الشاشات التالية تُبنى من داخل وحداتها -->
+    <section class="view" id="view-voucherIn"></section>
+    <section class="view" id="view-voucherOut"></section>
+    <section class="view" id="view-log"></section>
+    <section class="view" id="view-reports"></section>
+    <section class="view" id="view-pricing"></section>
+    <section class="view" id="view-stocktake"></section>
+    <section class="view" id="view-settings"></section>
+  </main>
+
+  <footer style="padding:14px 18px;color:var(--text-mute);font-size:.76rem;text-align:center">
+    <span id="appVersion"></span> — اختصارات: Alt+1 لوحة القيادة، Alt+2 الأصناف، Alt+3 وارد، Alt+4 صرف، Alt+5 السجل
+  </footer>
+</div>
+
+<div id="toasts"></div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

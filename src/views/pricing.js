@@ -1,0 +1,129 @@
+/** التسعير وقيمة المخزون — متاح للمحاسب والمدير ونائبه. */
+import { byId, esc, fillTable, debounce } from "../core/dom.js";
+import { fmtNum, fmtMoney, itemLabel, arSort, toNum } from "../core/format.js";
+import { get, set } from "../core/store.js";
+import { items as itemsRepo } from "../data/repo.js";
+import { can } from "../auth/roles.js";
+import { toast, toastError } from "../core/ui.js";
+import { exportRows } from "../data/excel.js";
+import { printTable } from "./print.js";
+
+let built = false;
+let search = "";
+let category = "";
+
+function build() {
+  byId("view-pricing").innerHTML = `
+    <div class="stat-grid" id="prCards"></div>
+    <div class="panel">
+      <div class="panel-head">
+        <h2 style="border:0;margin:0;padding:0;background:none">تسعير الأصناف</h2>
+        <span class="spacer"></span>
+        <button class="btn ghost small" id="prExport">تنزيل Excel</button>
+        <button class="btn ghost small" id="prPrint">طباعة</button>
+      </div>
+      <div class="toolbar">
+        <input type="search" id="prSearch" placeholder="بحث بالكود أو الاسم">
+        <select id="prCategory"><option value="">كل الفئات</option></select>
+        <span class="hint">${can("edit_price")
+          ? "عدّل السعر في الجدول مباشرة ثم اضغط خارج الحقل للحفظ."
+          : "العرض فقط — لا تملك صلاحية تعديل الأسعار."}</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>الكود</th><th>الصنف</th><th class="center">الرصيد</th>
+            <th>سعر الشراء</th><th>مصاريف إضافية</th><th>سعر الوحدة</th><th>قيمة الرصيد</th>
+          </tr></thead>
+          <tbody id="prBody"></tbody>
+        </table>
+      </div>
+    </div>`;
+
+  byId("prSearch").addEventListener("input", debounce((e) => { search = e.target.value.toLowerCase().trim(); paint(); }));
+  byId("prCategory").addEventListener("change", (e) => { category = e.target.value; paint(); });
+  byId("prExport").addEventListener("click", async () => {
+    await exportRows(rows().map(toRow), "تسعير_المخزون", "التسعير");
+    toast("تم تنزيل ملف Excel");
+  });
+  byId("prPrint").addEventListener("click", () => {
+    const data = rows().map(toRow);
+    if (!data.length) return toastError("لا توجد بيانات");
+    printTable({
+      title: "تقرير تسعير المخزون",
+      subtitle: `إجمالي القيمة: ${fmtMoney(total())}`,
+      headers: Object.keys(data[0]), rows: data.map((r) => Object.values(r)),
+    });
+  });
+
+  if (can("edit_price")) {
+    byId("prBody").addEventListener("change", async (e) => {
+      const input = e.target.closest("input[data-price-field]");
+      if (!input) return;
+      const id = input.dataset.id;
+      const field = input.dataset.priceField;
+      const value = toNum(input.value, 0);
+      if (value < 0) { input.classList.add("invalid"); return toastError("السعر لا يمكن أن يكون سالبًا"); }
+      input.classList.remove("invalid");
+      try {
+        const updated = await itemsRepo.update(id, { [field]: value });
+        set({ items: get("items").map((i) => (i.id === id ? updated : i)) });
+        toast("تم حفظ السعر");
+        paint();
+      } catch (err) { toastError(err.message); paint(); }
+    });
+  }
+  built = true;
+}
+
+export function render() {
+  if (!built) build();
+  const sel = byId("prCategory");
+  const current = sel.value;
+  sel.innerHTML = `<option value="">كل الفئات</option>` +
+    [...new Set(get("items").map((i) => i.category))].sort(arSort)
+      .map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  sel.value = current;
+  paint();
+}
+
+const rows = () => get("items").filter((i) => {
+  if (category && i.category !== category) return false;
+  if (!search) return true;
+  return `${i.code} ${i.brand} ${i.name} ${i.spec}`.toLowerCase().includes(search);
+});
+
+const total = () => rows().reduce((s, i) => s + Number(i.unit_price) * i.balance, 0);
+
+const toRow = (i) => ({
+  "الكود": i.code, "الصنف": itemLabel(i), "الفئة": i.category, "الرصيد": i.balance,
+  "سعر الشراء": Number(i.base_price), "مصاريف إضافية": Number(i.extra_costs),
+  "سعر الوحدة": Number(i.unit_price), "قيمة الرصيد": Number(i.unit_price) * i.balance,
+});
+
+function paint() {
+  const list = rows();
+  const unpriced = list.filter((i) => Number(i.unit_price) === 0).length;
+  byId("prCards").innerHTML = `
+    <div class="stat money"><div class="label">قيمة المخزون المعروض</div><div class="value">${fmtMoney(total())}</div></div>
+    <div class="stat"><div class="label">عدد الأصناف</div><div class="value">${fmtNum(list.length)}</div></div>
+    <div class="stat warn"><div class="label">أصناف بلا سعر</div><div class="value">${fmtNum(unpriced)}</div></div>`;
+
+  const editable = can("edit_price");
+  fillTable(byId("prBody"), list.map((i) => `
+    <tr>
+      <td class="code">${esc(i.code)}</td>
+      <td>${esc(itemLabel(i))}</td>
+      <td class="num center">${fmtNum(i.balance)}</td>
+      <td>${editable
+        ? `<input type="number" min="0" step="0.01" style="max-width:120px"
+             data-price-field="base_price" data-id="${esc(i.id)}" value="${Number(i.base_price)}">`
+        : fmtMoney(i.base_price)}</td>
+      <td>${editable
+        ? `<input type="number" min="0" step="0.01" style="max-width:120px"
+             data-price-field="extra_costs" data-id="${esc(i.id)}" value="${Number(i.extra_costs)}">`
+        : fmtMoney(i.extra_costs)}</td>
+      <td class="num">${fmtMoney(i.unit_price)}</td>
+      <td class="num">${fmtMoney(Number(i.unit_price) * i.balance)}</td>
+    </tr>`), 7, "لا توجد أصناف");
+}

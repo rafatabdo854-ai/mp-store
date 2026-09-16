@@ -1,0 +1,181 @@
+/* ============================================================
+   شاشة الدخول — لوحة توزيع كهربائية
+   الفكرة: الدخول لا يتم بزر، بل بغلق قاطع (Breaker) يُشغّل الدائرة.
+   ============================================================ */
+
+.login-scene {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center; padding: 20px;
+  background:
+    radial-gradient(1200px 700px at 70% -10%, #1B4351 0%, transparent 60%),
+    linear-gradient(170deg, #0B1E26 0%, #081116 100%);
+  overflow: auto;
+}
+.login-scene[hidden] { display: none; }
+
+/* شبكة مخططات هندسية خفيفة في الخلفية */
+.login-scene::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(122,178,194,.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(122,178,194,.07) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(circle at 50% 40%, #000 20%, transparent 78%);
+}
+
+/* قضبان التغذية النحاسية أعلى اللوحة */
+.busbars { position: absolute; top: 0; inset-inline: 0; height: 6px; display: flex; }
+.busbars span { flex: 1; }
+.busbars span:nth-child(1) { background: #A9622C; }
+.busbars span:nth-child(2) { background: #8C5A2B; }
+.busbars span:nth-child(3) { background: #6E4522; }
+
+/* ------------- الحاوية المعدنية ------------- */
+.enclosure {
+  position: relative; width: min(430px, 100%);
+  background: linear-gradient(160deg, #22424F 0%, #16323C 55%, #112831 100%);
+  border: 1px solid rgba(160,200,212,.22);
+  border-radius: 14px;
+  box-shadow: 0 40px 80px -30px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.08);
+  padding: 26px 26px 22px;
+  color: #DCEAEE;
+}
+.enclosure.trip { animation: trip .38s ease; }
+@keyframes trip {
+  20% { transform: translateX(-7px); } 45% { transform: translateX(6px); }
+  70% { transform: translateX(-3px); } 100% { transform: translateX(0); }
+}
+
+/* مسامير التثبيت في الأركان */
+.screw {
+  position: absolute; width: 10px; height: 10px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #8FA7AF, #47606A);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.35);
+}
+.screw::after {
+  content: ""; position: absolute; inset: 3px 1px; border-top: 1.5px solid rgba(0,0,0,.45);
+  transform: rotate(35deg); transform-origin: center;
+}
+.screw.tl { top: 10px; inset-inline-start: 10px; }
+.screw.tr { top: 10px; inset-inline-end: 10px; }
+.screw.bl { bottom: 10px; inset-inline-start: 10px; }
+.screw.br { bottom: 10px; inset-inline-end: 10px; }
+
+/* لوحة الاسم المحفورة */
+.nameplate {
+  border: 1px solid rgba(160,200,212,.25); border-radius: 6px;
+  padding: 10px 14px; margin-bottom: 20px; background: rgba(6,20,26,.5);
+}
+.nameplate .title { font-size: 1.02rem; font-weight: 600; letter-spacing: .01em; }
+.nameplate .sub { font-size: .74rem; color: #86A6B0; font-family: var(--mono); margin-top: 2px; }
+
+/* ------------- مصابيح البيان ------------- */
+.lamp-bank {
+  display: flex; gap: 14px; justify-content: space-between;
+  padding: 10px 12px; margin-bottom: 18px;
+  background: rgba(6,20,26,.45); border-radius: 8px;
+  border: 1px solid rgba(160,200,212,.14);
+}
+.lamp-unit { display: flex; align-items: center; gap: 7px; font-size: .72rem; color: #8FAEB8; }
+.lamp {
+  width: 11px; height: 11px; border-radius: 50%;
+  background: #3A4F58; box-shadow: inset 0 0 3px rgba(0,0,0,.6);
+  transition: background .2s, box-shadow .2s;
+}
+.lamp[data-on="green"] { background: #48D08A; box-shadow: 0 0 10px #48D08A; }
+.lamp[data-on="amber"] { background: #E8B44A; box-shadow: 0 0 10px #E8B44A; }
+.lamp[data-on="red"]   { background: #E4695E; box-shadow: 0 0 10px #E4695E; }
+.lamp[data-on="blink"] { background: #E8B44A; animation: pulse 1s infinite; }
+
+/* ------------- الحقول ------------- */
+.login-field { margin-bottom: 14px; }
+.login-field label {
+  display: block; font-size: .78rem; color: #96B3BC; margin-bottom: 6px;
+}
+.login-field input {
+  width: 100%; padding: 11px 13px; font: inherit; font-size: .94rem;
+  background: rgba(6,20,26,.6); color: #EAF4F6;
+  border: 1px solid rgba(160,200,212,.25); border-radius: 7px;
+}
+.login-field input::placeholder { color: #5E7C86; }
+.login-field input:focus {
+  outline: none; border-color: #4FB0CC; box-shadow: 0 0 0 3px rgba(79,176,204,.18);
+  background: rgba(6,20,26,.85);
+}
+.login-field input.invalid { border-color: #E4695E; }
+.login-hint { font-size: .74rem; color: #E8B44A; margin-top: 6px; min-height: 0; }
+.login-hint:empty { display: none; }
+
+/* ------------- سلك الدائرة الذي يضيء عند اكتمال البيانات ------------- */
+.circuit { display: block; width: 100%; height: 34px; margin: 4px 0 6px; }
+.circuit .track { stroke: rgba(160,200,212,.2); stroke-width: 2; fill: none; }
+.circuit .live {
+  stroke: #4FB0CC; stroke-width: 2; fill: none;
+  stroke-dasharray: 6 8; stroke-dashoffset: 0; opacity: 0;
+  transition: opacity .25s;
+}
+.circuit.energised .live { opacity: 1; animation: flow 1s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -28; } }
+.circuit .node { fill: rgba(160,200,212,.35); }
+.circuit.energised .node { fill: #4FB0CC; }
+
+/* ------------- القاطع (زر الدخول) ------------- */
+.breaker {
+  width: 100%; border: 1px solid rgba(160,200,212,.28); border-radius: 10px;
+  background: linear-gradient(180deg, #1B3C48, #122B34);
+  padding: 12px; display: flex; align-items: center; gap: 14px;
+  cursor: pointer; font: inherit; color: #DCEAEE; text-align: start;
+}
+.breaker:disabled { cursor: not-allowed; opacity: .55; }
+.breaker:hover:not(:disabled) { border-color: rgba(160,200,212,.5); }
+
+.breaker .slot {
+  width: 46px; height: 62px; border-radius: 6px; position: relative;
+  background: linear-gradient(180deg, #0A1A21, #061014);
+  border: 1px solid rgba(0,0,0,.5); flex: none;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.6);
+}
+.breaker .lever {
+  position: absolute; inset-inline: 7px; height: 24px; top: 5px;
+  border-radius: 4px; background: linear-gradient(180deg, #D9DFE1, #96A5AB);
+  box-shadow: 0 2px 4px rgba(0,0,0,.5);
+  transition: top .22s cubic-bezier(.4,1.6,.5,1), background .22s;
+}
+.breaker[data-state="on"] .lever  { top: 33px; background: linear-gradient(180deg, #7FDCA9, #35A06E); }
+.breaker[data-state="busy"] .lever{ top: 19px; background: linear-gradient(180deg, #F0CE86, #C89226); }
+.breaker .marks {
+  position: absolute; inset-inline-end: -1px; top: 4px; bottom: 4px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  font-family: var(--mono); font-size: .52rem; color: #6C888F; padding-inline-end: 3px;
+}
+.breaker .text .cap { font-weight: 600; font-size: .96rem; }
+.breaker .text .sub { font-size: .74rem; color: #8FAEB8; font-family: var(--mono); }
+
+.login-error {
+  margin-top: 14px; padding: 10px 12px; border-radius: 7px;
+  background: rgba(228,105,94,.12); border: 1px solid rgba(228,105,94,.35);
+  color: #FFC8C2; font-size: .84rem;
+}
+.login-error[hidden] { display: none; }
+
+.login-foot {
+  margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(160,200,212,.14);
+  font-size: .74rem; color: #7A99A3; display: flex; justify-content: space-between; gap: 10px;
+}
+.login-foot button {
+  background: none; border: 0; color: #4FB0CC; cursor: pointer; font: inherit; font-size: .74rem;
+  text-decoration: underline;
+}
+
+/* شاشة الإعداد الأولي (عند غياب مفاتيح Supabase) */
+.setup-note {
+  margin-top: 14px; font-size: .78rem; color: #A9C4CC;
+  background: rgba(79,176,204,.1); border: 1px solid rgba(79,176,204,.3);
+  border-radius: 7px; padding: 10px 12px;
+}
+.setup-note code { font-family: var(--mono); color: #EAF4F6; }
+
+@media (max-width: 420px) {
+  .enclosure { padding: 22px 18px 18px; }
+  .lamp-bank { flex-wrap: wrap; gap: 8px 14px; }
+}

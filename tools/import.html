@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>استيراد بيانات المخزن القديمة</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/main.css">
+<style>
+  body { padding: 24px; }
+  .wrap { max-width: 780px; margin: 0 auto; }
+  #log { background: #0E1D24; color: #CFE3E8; font-family: var(--mono); font-size: 12px;
+         padding: 14px; border-radius: 8px; max-height: 320px; overflow: auto; direction: ltr; text-align: left; }
+  .step { counter-increment: s; }
+  .step h2::before { content: counter(s) ". "; color: var(--brand); }
+  body { counter-reset: s; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel">
+    <h2>استيراد بيانات المخزن من ملف Excel القديم</h2>
+    <p class="hint">
+      تُستخدم هذه الصفحة <b>مرة واحدة فقط</b> عند بدء التشغيل، لنقل الأصناف والحركات
+      من ملف <code>قاعدة_بيانات_المخزن.xlsx</code> إلى قاعدة البيانات الجديدة.
+      يجب تسجيل الدخول بحساب <b>مدير النظام</b>.
+    </p>
+  </div>
+
+  <div class="panel step">
+    <h2>تسجيل الدخول</h2>
+    <div class="fields">
+      <div class="field"><label for="u">اسم المستخدم</label><input id="u" dir="ltr"></div>
+      <div class="field"><label for="p">كلمة المرور</label><input id="p" type="password" dir="ltr"></div>
+      <div class="field"><label>&nbsp;</label><button class="btn" id="btnLogin">دخول</button></div>
+    </div>
+    <div class="hint" id="who"></div>
+  </div>
+
+  <div class="panel step">
+    <h2>اختيار الملف</h2>
+    <input type="file" id="file" accept=".xlsx,.xlsm">
+    <div class="hint" id="preview"></div>
+  </div>
+
+  <div class="panel step">
+    <h2>تنفيذ الاستيراد</h2>
+    <div class="toolbar">
+      <button class="btn" id="btnRun" disabled>ابدأ الاستيراد</button>
+      <label style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="dry" style="width:auto" checked> تجربة بدون كتابة (فحص فقط)
+      </label>
+    </div>
+    <div id="log">في الانتظار...</div>
+  </div>
+</div>
+
+<script type="module">
+import { initClient, db, run, translateError } from "../src/data/client.js";
+import { signIn } from "../src/auth/auth.js";
+import { readWorkbook } from "../src/data/excel.js";
+
+const logBox = document.getElementById("log");
+const say = (msg) => { logBox.textContent += "\n" + msg; logBox.scrollTop = logBox.scrollHeight; };
+let workbook = null;
+
+initClient();
+
+document.getElementById("btnLogin").onclick = async () => {
+  try {
+    const profile = await signIn(document.getElementById("u").value.trim(),
+                                document.getElementById("p").value);
+    document.getElementById("who").textContent = `مسجّل الدخول: ${profile.full_name} (${profile.role})`;
+    if (profile.role !== "admin") say("تحذير: الاستيراد يحتاج صلاحية مدير النظام.");
+    check();
+  } catch (err) { say("فشل الدخول: " + err.message); }
+};
+
+document.getElementById("file").onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  workbook = await readWorkbook(file);
+  document.getElementById("preview").textContent =
+    Object.entries(workbook).map(([name, rows]) => `${name}: ${rows.length} صف`).join(" — ");
+  check();
+};
+
+const check = () => {
+  document.getElementById("btnRun").disabled = !(workbook && document.getElementById("who").textContent);
+};
+
+document.getElementById("btnRun").onclick = async () => {
+  const dry = document.getElementById("dry").checked;
+  logBox.textContent = dry ? "وضع الفحص فقط — لن تُكتب أي بيانات" : "بدء الاستيراد الفعلي";
+  try {
+    const itemRows = workbook["الأصناف"] || [];
+    const txnRows  = workbook["الحركات"] || [];
+    const supRows  = workbook["الموردون"] || [];
+    const prjRows  = workbook["المشاريع"] || [];
+
+    const items = itemRows.map((r) => ({
+      id: String(r["المعرف"] || "").trim(),
+      code: String(r["الكود"] || "").trim(),
+      category: String(r["الفئة"] || "غير مصنّف").trim(),
+      brand: String(r["الماركة"] || "").trim(),
+      name: String(r["الاسم"] || "").trim(),
+      spec: String(r["المواصفة"] || "").trim(),
+      unit: String(r["الوحدة"] || "قطعة").trim(),
+      opening_balance: Number(r["الرصيد الافتتاحي"] || 0),
+      balance: Number(r["الرصيد الافتتاحي"] || 0),
+      threshold: Number(r["الحد الأدنى"] || 5),
+      base_price: Number(r["سعر الشراء"] || 0),
+      extra_costs: Number(r["مصاريف إضافية"] || 0),
+    })).filter((i) => i.id && i.name);
+
+    say(`أصناف صالحة: ${items.length} من ${itemRows.length}`);
+
+    const bad = items.filter((i) => !i.code);
+    if (bad.length) say(`تنبيه: ${bad.length} صنف بدون كود — سيُولَّد لهم كود تلقائي`);
+
+    const txns = txnRows.map((r) => ({
+      type: String(r["النوع"]).includes("وارد") || r["النوع"] === "in" ? "in" : "out",
+      voucher_no: String(r["رقم الإذن"] || "").trim(),
+      txn_date: normDate(r["التاريخ"]),
+      item_id: String(r["معرف الصنف"] || "").trim(),
+      item_name: String(r["اسم الصنف"] || "").trim(),
+      qty: Number(r["الكمية"] || 0),
+      party: String(r["الجهة"] || "").trim(),
+      project: String(r["المشروع"] || "").trim(),
+      notes: String(r["ملاحظات"] || "").trim(),
+      source: "import",
+      created_by_name: String(r["بواسطة"] || "استيراد").trim(),
+    })).filter((t) => t.item_id && t.qty > 0 && t.txn_date);
+
+    say(`حركات صالحة: ${txns.length} من ${txnRows.length}`);
+
+    const missing = txns.filter((t) => !items.some((i) => i.id === t.item_id));
+    if (missing.length) say(`تحذير: ${missing.length} حركة تشير إلى أصناف غير موجودة — سيتم تخطّيها`);
+
+    if (dry) { say("انتهى الفحص. أزل علامة الفحص فقط ثم أعد التشغيل للكتابة."); return; }
+
+    // السماح مؤقتًا بالرصيد السالب حتى لا يُرفض ترتيب الحركات القديم
+    await run(db().from("settings").upsert({ key: "stock",
+      value: { allow_negative_stock: true, default_threshold: 5 } }).select());
+
+    const cats = [...new Set(items.map((i) => i.category))]
+      .map((name) => ({ name, prefix: (name.replace(/[^A-Za-z]/g, "").slice(0, 3) || "GEN").toUpperCase() }));
+    if (cats.length) { await run(db().from("categories").upsert(cats).select()); say(`فئات: ${cats.length}`); }
+
+    for (const chunk of batches(items, 200)) {
+      await run(db().from("items").upsert(chunk).select("id"));
+      say(`أصناف مرفوعة: ${chunk.length}`);
+    }
+
+    const valid = txns.filter((t) => items.some((i) => i.id === t.item_id))
+                      .sort((a, b) => a.txn_date.localeCompare(b.txn_date));
+    for (const chunk of batches(valid, 300)) {
+      await run(db().from("transactions").insert(chunk).select("id"));
+      say(`حركات مرفوعة: ${chunk.length}`);
+    }
+
+    const suppliers = supRows.map((r) => ({ name: String(r["اسم المورد"] || "").trim() })).filter((s) => s.name);
+    const projects  = prjRows.map((r) => ({ name: String(r["اسم المشروع"] || "").trim() })).filter((p) => p.name);
+    if (suppliers.length) await run(db().from("suppliers").upsert(suppliers).select());
+    if (projects.length)  await run(db().from("projects").upsert(projects).select());
+
+    // ضبط أرقام الأذون لتكمل من آخر رقم مستورد
+    await syncCounters(valid);
+
+    const n = await run(db().rpc("recalc_balances"));
+    say(`أُعيد حساب أرصدة ${n} صنف`);
+
+    await run(db().from("settings").upsert({ key: "stock",
+      value: { allow_negative_stock: false, default_threshold: 5 } }).select());
+
+    say("تم الاستيراد بنجاح. يمكنك إغلاق هذه الصفحة واستخدام النظام.");
+  } catch (err) {
+    say("توقّف الاستيراد: " + (translateError(err).message || err.message));
+  }
+};
+
+function* batches(arr, size) {
+  for (let i = 0; i < arr.length; i += size) yield arr.slice(i, i + size);
+}
+
+function normDate(value) {
+  if (!value) return "";
+  if (typeof value === "number") {
+    const d = new Date(Date.UTC(1899, 11, 30) + value * 864e5);
+    return d.toISOString().slice(0, 10);
+  }
+  const s = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+}
+
+async function syncCounters(txns) {
+  for (const type of ["in", "out"]) {
+    const nums = txns.filter((t) => t.type === type)
+      .map((t) => parseInt(String(t.voucher_no).replace(/\D/g, ""), 10))
+      .filter(Number.isFinite);
+    if (!nums.length) continue;
+    const max = Math.max(...nums);
+    await run(db().rpc("set_voucher_counter", { p_type: type, p_value: max }));
+    say(`عدّاد أذون ${type} ضُبط على ${max}`);
+  }
+}
+</script>
+</body>
+</html>
