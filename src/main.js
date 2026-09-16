@@ -18,6 +18,7 @@ import * as reportsView from "./views/reports.js";
 import * as pricingView from "./views/pricing.js";
 import * as stocktakeView from "./views/stocktake.js";
 import * as settingsView from "./views/settings.js";
+import * as accountingView from "./views/accounting.js";
 import { refreshSummary } from "./views/shared.js";
 
 const voucherIn  = makeVoucherView("in");
@@ -26,7 +27,8 @@ const voucherOut = makeVoucherView("out");
 /** عنوان كل شاشة كما يظهر في الشريط العلوي */
 const TITLES = {
   dashboard: "لوحة القيادة", items: "الأصناف", voucherIn: "إذن وارد", voucherOut: "إذن صرف",
-  log: "سجل الحركات", reports: "التقارير", pricing: "التسعير", stocktake: "الجرد", settings: "الإعدادات",
+  log: "سجل الحركات", reports: "التقارير", pricing: "التسعير", accounting: "المحاسبة",
+  stocktake: "الجرد", settings: "الإعدادات",
 };
 
 const closeNav = () => document.body.classList.remove("nav-open");
@@ -39,6 +41,7 @@ const VIEWS = {
   log:        { render: logView.render,       permission: null },
   reports:    { render: reportsView.render,   permission: null },
   pricing:    { render: pricingView.render,   permission: "view_pricing" },
+  accounting: { render: accountingView.render, permission: "accounting" },
   stocktake:  { render: stocktakeView.render, permission: "stocktake" },
   settings:   { render: settingsView.render,  permission: null },
 };
