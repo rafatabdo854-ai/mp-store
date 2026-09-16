@@ -547,3 +547,9 @@ tr.click:hover { background: var(--brand-tint); }
 #dashTrend .up   { color: var(--out); font-weight: 600; }
 #dashTrend .down { color: var(--ok); font-weight: 600; }
 .bar-fill.alt { background: var(--copper); }
+.brand .mark {
+  background: none;
+  object-fit: contain;
+  padding: 3px;
+  border-radius: 8px;
+}
