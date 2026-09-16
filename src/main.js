@@ -191,4 +191,3 @@ function wireChrome() {
     if (map[e.key]) { e.preventDefault(); location.hash = map[e.key]; }
   });
 }
-
