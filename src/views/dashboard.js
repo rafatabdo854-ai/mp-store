@@ -30,16 +30,23 @@ function build() {
 
     <div id="dashAlerts" class="alerts"></div>
 
-    <div class="kpi" id="dashCards"></div>
+    <div class="kpi-strip" id="dashCards"></div>
 
-    <div class="panel">
-      <div class="panel-head">
-        <h2 style="border:0;margin:0;padding:0;background:none">حركة المخزن</h2>
-        <span class="spacer"></span>
-        <span class="legend"><i class="sw in"></i>وارد <i class="sw out"></i>صرف</span>
+    <div class="grid-main" style="margin-bottom:16px">
+      <div class="panel">
+        <div class="panel-head">
+          <h2 style="margin:0">حركة المخزن</h2>
+          <span class="spacer"></span>
+          <span class="legend"><i class="sw in"></i>وارد <i class="sw out"></i>صرف</span>
+        </div>
+        <div id="dashChart" class="chart-box"></div>
+        <div class="hint" id="dashTrend"></div>
       </div>
-      <div id="dashChart" class="chart-box"></div>
-      <div class="hint" id="dashTrend"></div>
+
+      <div class="panel">
+        <h2>توزيع المخزن</h2>
+        <div class="donuts" id="dashDonuts"></div>
+      </div>
     </div>
 
     <div class="panel" id="riskPanel">
@@ -189,8 +196,8 @@ async function load() {
 
 function skeleton() {
   byId("dashCards").innerHTML = Array.from({ length: 6 }, () =>
-    `<div class="k t-brand"><div class="skeleton" style="width:70%"></div>
-     <div class="skeleton" style="width:45%;height:26px;margin-top:10px"></div>
+    `<div class="seg"><div class="skeleton" style="width:70%"></div>
+     <div class="skeleton" style="width:45%;height:24px;margin-top:10px"></div>
      <div class="skeleton" style="width:85%;height:9px;margin-top:10px"></div></div>`).join("");
 }
 
@@ -204,6 +211,7 @@ function paint() {
 
   paintKpi(k, data.movement, showValue);
 
+  paintDonuts(k, showValue);
   paintChart(data.series);
   paintTrend(data.movement);
   paintRisk();
@@ -263,12 +271,101 @@ function paintKpi(k, mv, showValue) {
     const attrs = c.goto
       ? `data-goto="${c.goto}" data-params="${esc(new URLSearchParams(c.params || {}).toString())}"`
       : c.scroll ? `data-scroll="${c.scroll}"` : "";
-    return `<${tag} class="k t-${c.tone}${(c.goto || c.scroll) ? " click" : ""}" ${attrs}>
-      <span class="k-label">${esc(c.label)}</span>
-      <span class="k-value${c.money ? " money" : ""}">${esc(c.value)}</span>
-      <span class="k-sub">${esc(c.sub)}</span>
+    return `<${tag} class="seg t-${c.tone}" ${attrs}>
+      <span class="s-label">${esc(c.label)}</span>
+      <span class="s-value${c.money ? " sm" : ""}">${esc(c.value)}</span>
+      <span class="s-sub">${esc(c.sub)}</span>
     </${tag}>`;
   }).join("");
+}
+
+/* ------------------------- الدونات ------------------------- */
+const TONES = {
+  ok: "#2B7A5B", warn: "#B8790B", out: "#AE3B33",
+  brand: "#0F6E8C", copper: "#8C5A2B", in: "#2A6BA3", mute: "#C7D2DC",
+};
+
+/**
+ * حلقة مقسّمة بالـ SVG: كل قطعة شريحة من محيط الدائرة.
+ * أبسط وأخف من تحميل مكتبة رسم كاملة.
+ */
+function donut({ title, segments, big, cap }) {
+  const R = 52, SW = 14, C = 2 * Math.PI * R;
+  const total = segments.reduce((sum, seg) => sum + Number(seg.value), 0);
+  let offset = 0;
+
+  const rings = total > 0 ? segments.filter((seg) => Number(seg.value) > 0).map((seg) => {
+    const len = (Number(seg.value) / total) * C;
+    const node = `<circle class="ring" cx="64" cy="64" r="${R}" stroke="${seg.color}"
+        stroke-width="${SW}" stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}"
+        stroke-dashoffset="${(-offset).toFixed(2)}"><title>${esc(seg.label)}: ${fmtNum(seg.value)}</title></circle>`;
+    offset += len;
+    return node;
+  }).join("") : "";
+
+  return `
+    <div class="donut">
+      <div class="title">${esc(title)}</div>
+      <div class="hub">
+        <svg viewBox="0 0 128 128" role="img" aria-label="${esc(title)}">
+          <circle class="ring-bg" cx="64" cy="64" r="${R}" stroke-width="${SW}"></circle>
+          ${rings}
+        </svg>
+        <div class="mid"><div class="big">${esc(big)}</div><div class="cap">${esc(cap)}</div></div>
+      </div>
+      <div class="keys">
+        ${segments.map((seg) => `<div class="key"><i style="background:${seg.color}"></i>
+          ${esc(seg.label)}<b>${fmtNum(seg.value)}</b></div>`).join("")}
+      </div>
+    </div>`;
+}
+
+function paintDonuts(k, showValue) {
+  const healthy = Math.max(0, k.items_count - k.low_stock - k.out_of_stock);
+  const parts = [
+    donut({
+      title: "حالة الأرصدة",
+      big: fmtNum(k.items_count), cap: "صنف",
+      segments: [
+        { label: "متاح", value: healthy, color: TONES.ok },
+        { label: "تحت الحد", value: k.low_stock, color: TONES.warn },
+        { label: "نفد", value: k.out_of_stock, color: TONES.out },
+      ],
+    }),
+  ];
+
+  const cats = (data.by_category || []).slice();
+  if (cats.length) {
+    const palette = [TONES.brand, TONES.in, TONES.copper, TONES.ok, TONES.warn];
+    const key = showValue ? "value" : "qty";
+    const sorted = cats.sort((a, b) => Number(b[key]) - Number(a[key]));
+    const top = sorted.slice(0, 4).map((c, i) => ({
+      label: c.category.length > 16 ? c.category.slice(0, 15) + "…" : c.category,
+      value: Math.round(Number(c[key])), color: palette[i],
+    }));
+    const rest = sorted.slice(4).reduce((sum, c) => sum + Number(c[key]), 0);
+    if (rest > 0) top.push({ label: "باقي الفئات", value: Math.round(rest), color: TONES.mute });
+
+    parts.push(donut({
+      title: showValue ? "القيمة حسب الفئة" : "الكميات حسب الفئة",
+      big: fmtNum(sorted.length), cap: "فئة",
+      segments: top,
+    }));
+  }
+
+  if (showValue) {
+    const priced = Math.max(0, k.items_count - k.unpriced);
+    parts.push(donut({
+      title: "اكتمال التسعير",
+      big: `${fmtNum(k.items_count ? Math.round((priced / k.items_count) * 100) : 0)}%`, cap: "مسعّر",
+      segments: [
+        { label: "مسعّر", value: priced, color: TONES.brand },
+        { label: "بلا سعر", value: k.unpriced, color: TONES.mute },
+      ],
+    }));
+  }
+
+  byId("dashDonuts").innerHTML = parts.join("");
 }
 
 /** مركز الإجراءات: لا يظهر إلا ما يحتاج تدخّلًا فعليًا. */
@@ -362,9 +459,9 @@ function paintChart(series) {
       <g>
         <title>${esc(label)} — وارد ${fmtNum(p.in_qty)} / صرف ${fmtNum(p.out_qty)}</title>
         <rect x="${(cx - barW - 1).toFixed(1)}" y="${(H - padB - hIn).toFixed(1)}"
-              width="${barW}" height="${Math.max(hIn, 0).toFixed(1)}" class="b-in" rx="2"></rect>
+              width="${barW}" height="${Math.max(hIn, 0).toFixed(1)}" class="b-in" rx="${(barW / 2).toFixed(1)}"></rect>
         <rect x="${(cx + 1).toFixed(1)}" y="${(H - padB - hOut).toFixed(1)}"
-              width="${barW}" height="${Math.max(hOut, 0).toFixed(1)}" class="b-out" rx="2"></rect>
+              width="${barW}" height="${Math.max(hOut, 0).toFixed(1)}" class="b-out" rx="${(barW / 2).toFixed(1)}"></rect>
       </g>`;
   }).join("");
 
