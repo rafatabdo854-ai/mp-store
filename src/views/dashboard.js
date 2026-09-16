@@ -30,7 +30,7 @@ function build() {
 
     <div id="dashAlerts" class="alerts"></div>
 
-    <div class="stat-grid" id="dashCards"></div>
+    <div class="kpi" id="dashCards"></div>
 
     <div class="panel">
       <div class="panel-head">
@@ -188,9 +188,10 @@ async function load() {
 }
 
 function skeleton() {
-  byId("dashCards").innerHTML = Array.from({ length: 5 }, () =>
-    `<div class="stat"><div class="skeleton" style="width:60%"></div>
-     <div class="skeleton" style="width:40%;height:22px;margin-top:8px"></div></div>`).join("");
+  byId("dashCards").innerHTML = Array.from({ length: 6 }, () =>
+    `<div class="k t-brand"><div class="skeleton" style="width:70%"></div>
+     <div class="skeleton" style="width:45%;height:26px;margin-top:10px"></div>
+     <div class="skeleton" style="width:85%;height:9px;margin-top:10px"></div></div>`).join("");
 }
 
 /* ------------------------- الرسم ------------------------- */
@@ -201,19 +202,7 @@ function paint() {
   byId("dashStamp").textContent = `آخر تحديث ${fmtDateTime(new Date())}`;
   paintAlerts(k, data.movement);
 
-  byId("dashCards").innerHTML = `
-    <button class="stat click" data-goto="items">
-      <div class="label">الأصناف النشطة</div><div class="value">${fmtNum(k.items_count)}</div></button>
-    <div class="stat"><div class="label">إجمالي الكميات</div><div class="value">${fmtNum(k.total_stock)}</div></div>
-    <button class="stat warn click" data-goto="items" data-params="stock=low">
-      <div class="label">تحت الحد الأدنى</div><div class="value">${fmtNum(k.low_stock)}</div></button>
-    <button class="stat danger click" data-goto="items" data-params="stock=zero">
-      <div class="label">نفد من المخزن</div><div class="value">${fmtNum(k.out_of_stock)}</div></button>
-    <button class="stat click" data-goto="log">
-      <div class="label">أذون خلال ${period} يوم</div>
-      <div class="value">${fmtNum(data.movement.vouchers_now)}</div></button>
-    ${showValue ? `<div class="stat money"><div class="label">قيمة المخزون</div>
-      <div class="value">${fmtMoney(k.stock_value)}</div></div>` : ""}`;
+  paintKpi(k, data.movement, showValue);
 
   paintChart(data.series);
   paintTrend(data.movement);
@@ -226,6 +215,60 @@ function paint() {
   paintRecent();
 
   document.querySelectorAll("#view-dashboard [data-col='value']").forEach((n) => { n.hidden = !showValue; });
+}
+
+/** بطاقات المؤشرات: رقم كبير + سطر يفسّره، وكل بطاقة تنقل لمكانها. */
+function paintKpi(k, mv, showValue) {
+  const pct = (part, whole) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
+  const trend = mv.out_change === null || mv.out_change === undefined
+    ? `${fmtNum(mv.out_now)} وحدة منصرفة`
+    : `الصرف ${Number(mv.out_change) >= 0 ? "أعلى" : "أقل"} ${fmtNum(Math.abs(Number(mv.out_change)))}% عن السابق`;
+
+  const cards = [
+    {
+      tone: "brand", label: "الأصناف النشطة", value: fmtNum(k.items_count),
+      sub: `${fmtNum(k.total_stock)} وحدة في المخزن`,
+      goto: "items",
+    },
+    {
+      tone: "warn", label: "تحت الحد الأدنى", value: fmtNum(k.low_stock),
+      sub: `${fmtNum(pct(k.low_stock, k.items_count))}% من الأصناف`,
+      goto: "items", params: { stock: "low" },
+    },
+    {
+      tone: "out", label: "نفد من المخزن", value: fmtNum(k.out_of_stock),
+      sub: "لا يمكن الصرف منها",
+      goto: "items", params: { stock: "zero" },
+    },
+    {
+      tone: "out", label: "يكفي ١٤ يومًا أو أقل", value: fmtNum(k.urgent),
+      sub: "حسب معدل الصرف الفعلي",
+      scroll: "riskPanel",
+    },
+    {
+      tone: "in", label: `أذون خلال ${period} يوم`, value: fmtNum(mv.vouchers_now),
+      sub: trend,
+      goto: "log",
+    },
+  ];
+
+  if (showValue) cards.push({
+    tone: "copper", label: "قيمة المخزون", value: fmtMoney(k.stock_value), money: true,
+    sub: k.unpriced > 0 ? `${fmtNum(k.unpriced)} صنف بلا سعر` : "كل الأصناف مسعّرة",
+    goto: "pricing",
+  });
+
+  byId("dashCards").innerHTML = cards.map((c) => {
+    const tag = (c.goto || c.scroll) ? "button" : "div";
+    const attrs = c.goto
+      ? `data-goto="${c.goto}" data-params="${esc(new URLSearchParams(c.params || {}).toString())}"`
+      : c.scroll ? `data-scroll="${c.scroll}"` : "";
+    return `<${tag} class="k t-${c.tone}${(c.goto || c.scroll) ? " click" : ""}" ${attrs}>
+      <span class="k-label">${esc(c.label)}</span>
+      <span class="k-value${c.money ? " money" : ""}">${esc(c.value)}</span>
+      <span class="k-sub">${esc(c.sub)}</span>
+    </${tag}>`;
+  }).join("");
 }
 
 /** مركز الإجراءات: لا يظهر إلا ما يحتاج تدخّلًا فعليًا. */
