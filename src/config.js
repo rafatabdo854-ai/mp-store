@@ -17,6 +17,11 @@ export const LOGIN_DOMAIN = "mp-store.local";
 /** إعدادات عامة */
 export const APP = {
   name: "إدارة مخزن مستلزمات الكهرباء",
+  company: "Elhana Electrec",
+  /** مسار اللوجو داخل المستودع — ضع الصورة في assets/img/ */
+  logo: "assets/img/logo.png",
+  /** ارتفاع اللوجو في الترويسة (بكسل) */
+  logoHeight: 52,
   currency: "ج.م",
   version: "10.0.0",
   /** عدد صفوف سجل الحركات في الصفحة الواحدة */
