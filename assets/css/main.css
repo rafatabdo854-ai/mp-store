@@ -276,3 +276,80 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--out); back
   table { font-size: .82rem; }
   .stat .value { font-size: 1.3rem; }
 }
+
+/* ============================================================
+   لوحة القيادة الذكية
+   ============================================================ */
+
+.dash-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+
+.period { display: inline-flex; background: var(--card); border: 1px solid var(--line);
+          border-radius: 999px; padding: 3px; }
+.period button {
+  border: 0; background: transparent; font: inherit; font-size: .82rem;
+  padding: 6px 14px; border-radius: 999px; cursor: pointer; color: var(--text-mute);
+}
+.period button.on { background: var(--brand); color: #fff; font-weight: 600; }
+.period button:hover:not(.on) { color: var(--text); }
+
+/* ---------- مركز الإجراءات ---------- */
+.alerts { display: grid; gap: 8px; margin-bottom: 16px; }
+.alert {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: start;
+  background: var(--card); border: 1px solid var(--line); border-inline-start: 4px solid var(--brand);
+  border-radius: var(--radius); padding: 12px 14px; font: inherit; cursor: pointer;
+  transition: transform .1s ease, box-shadow .1s ease;
+}
+.alert:hover { box-shadow: var(--shadow); transform: translateX(-2px); }
+.alert:not(button) { cursor: default; }
+.alert .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--brand); flex: none; }
+.alert .txt { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.alert .txt b { font-size: .92rem; }
+.alert .txt span { font-size: .8rem; color: var(--text-mute); }
+.alert .cta { font-size: .8rem; color: var(--brand); font-weight: 600; white-space: nowrap; }
+
+.alert.danger { border-inline-start-color: var(--out); background: var(--out-tint); }
+.alert.danger .dot { background: var(--out); }
+.alert.danger .cta { color: var(--out); }
+.alert.warn { border-inline-start-color: var(--warn); background: var(--warn-tint); }
+.alert.warn .dot { background: var(--warn); }
+.alert.warn .cta { color: var(--warn); }
+.alert.ok { border-inline-start-color: var(--ok); background: var(--ok-tint); }
+.alert.ok .dot { background: var(--ok); }
+.alert.info { border-inline-start-color: var(--copper); }
+.alert.info .dot { background: var(--copper); }
+.alert.info .cta { color: var(--copper); }
+
+/* ---------- بطاقات وصفوف قابلة للضغط ---------- */
+button.stat {
+  font: inherit; text-align: start; cursor: pointer; width: 100%;
+  transition: transform .1s ease, box-shadow .1s ease;
+}
+button.stat:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+tr.click { cursor: pointer; }
+tr.click:hover { background: var(--brand-tint); }
+
+/* ---------- الرسم البياني ---------- */
+.chart-box { width: 100%; overflow: hidden; }
+.chart { width: 100%; height: 200px; display: block; }
+.chart .b-in  { fill: var(--in); }
+.chart .b-out { fill: var(--out); }
+.chart .grid  { stroke: var(--line-soft); stroke-width: 1; }
+.chart .tick  { fill: var(--text-mute); font-size: 10px; font-family: var(--mono); }
+.chart .tick.s { font-size: 9px; }
+
+.legend { display: inline-flex; align-items: center; gap: 8px; font-size: .78rem; color: var(--text-mute); }
+.legend .sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-inline-end: 3px; }
+.legend .sw.in { background: var(--in); }
+.legend .sw.out { background: var(--out); }
+
+#dashTrend .up   { color: var(--out); font-weight: 600; }
+#dashTrend .down { color: var(--ok); font-weight: 600; }
+
+.bar-fill.alt { background: var(--copper); }
+
+/* ---------- عمودان على الشاشات الواسعة ---------- */
+.dash-cols { display: grid; gap: 16px; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .dash-cols { grid-template-columns: 1fr 1fr; } }
+
+[hidden] { display: none !important; }
