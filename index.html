@@ -6,6 +6,9 @@
 <meta name="theme-color" content="#13303B">
 <title>مخزن شركه الهنا الكتريك</title>
 
+<link rel="icon" href="./assets/img/logo.png">
+<link rel="apple-touch-icon" href="./assets/img/logo.png">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -25,8 +28,11 @@
     <span class="screw bl"></span><span class="screw br"></span>
 
     <div class="nameplate">
-      <div class="title">مخزن مستلزمات الكهرباء</div>
-      <div class="sub">Elhana Electric</div>
+      <img class="plate-logo" src="./assets/img/logo.png" alt="" onerror="this.remove()">
+      <div>
+        <div class="title">مخزن مستلزمات الكهرباء</div>
+        <div class="sub">Elhana Electric</div>
+      </div>
     </div>
 
     <div class="lamp-bank">
@@ -83,7 +89,7 @@
 
   <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <img class="mark" src="./assets/img/logo.png" alt="">
+      <img class="mark" src="./assets/img/logo.png" alt="" onerror="this.remove()">
       <div><b>مخزن مستلزمات الكهرباء</b><small>Elhana Electric</small></div>
     </div>
     <nav class="nav" aria-label="أقسام النظام">
@@ -120,54 +126,54 @@
       <button class="btn ghost small" id="btnRefresh">تحديث</button>
     </header>
 
-  <main>
-    <!-- لوحة القيادة تُبنى من داخل وحدتها -->
-    <section class="view" id="view-dashboard"></section>
+    <main>
+      <!-- لوحة القيادة تُبنى من داخل وحدتها -->
+      <section class="view" id="view-dashboard"></section>
 
-    <!-- الأصناف -->
-    <section class="view" id="view-items">
-      <div class="panel">
-        <div class="panel-head">
-          <h2 style="border:0;margin:0;padding:0;background:none">قائمة الأصناف</h2>
-          <span class="spacer"></span>
-          <button class="btn ghost small" id="btnExportItems">تنزيل Excel</button>
-          <button class="btn ghost small" id="btnPrintItems">طباعة</button>
-          <button class="btn small" id="btnAddItem">إضافة صنف</button>
+      <!-- الأصناف -->
+      <section class="view" id="view-items">
+        <div class="panel">
+          <div class="panel-head">
+            <h2 style="margin:0">قائمة الأصناف</h2>
+            <span class="spacer"></span>
+            <button class="btn ghost small" id="btnExportItems">تنزيل Excel</button>
+            <button class="btn ghost small" id="btnPrintItems">طباعة</button>
+            <button class="btn small" id="btnAddItem">إضافة صنف</button>
+          </div>
+          <div class="toolbar">
+            <input type="search" id="itemSearch" placeholder="بحث بالكود، الاسم، الماركة، المواصفة">
+            <select id="itemCategoryFilter"><option value="">كل الفئات</option></select>
+            <select id="itemStockFilter">
+              <option value="">كل الأرصدة</option>
+              <option value="ok">متاح</option>
+              <option value="low">تحت الحد الأدنى</option>
+              <option value="zero">نفد من المخزن</option>
+            </select>
+            <span class="hint" id="itemsCount"></span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>الكود</th><th>الصنف</th><th>الفئة</th><th class="center">الوحدة</th>
+                <th class="center">الرصيد</th><th class="center">الحد الأدنى</th><th class="center">الحالة</th>
+                <th data-col="price">سعر الوحدة</th><th>إجراء</th>
+              </tr></thead>
+              <tbody id="itemsBody"></tbody>
+            </table>
+          </div>
         </div>
-        <div class="toolbar">
-          <input type="search" id="itemSearch" placeholder="بحث بالكود، الاسم، الماركة، المواصفة">
-          <select id="itemCategoryFilter"><option value="">كل الفئات</option></select>
-          <select id="itemStockFilter">
-            <option value="">كل الأرصدة</option>
-            <option value="ok">متاح</option>
-            <option value="low">تحت الحد الأدنى</option>
-            <option value="zero">نفد من المخزن</option>
-          </select>
-          <span class="hint" id="itemsCount"></span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr>
-              <th>الكود</th><th>الصنف</th><th>الفئة</th><th class="center">الوحدة</th>
-              <th class="center">الرصيد</th><th class="center">الحد الأدنى</th><th class="center">الحالة</th>
-              <th data-col="price">سعر الوحدة</th><th>إجراء</th>
-            </tr></thead>
-            <tbody id="itemsBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- الشاشات التالية تُبنى من داخل وحداتها -->
-    <section class="view" id="view-voucherIn"></section>
-    <section class="view" id="view-voucherOut"></section>
-    <section class="view" id="view-log"></section>
-    <section class="view" id="view-reports"></section>
-    <section class="view" id="view-pricing"></section>
-    <section class="view" id="view-accounting"></section>
-    <section class="view" id="view-stocktake"></section>
-    <section class="view" id="view-settings"></section>
-  </main>
+      <!-- الشاشات التالية تُبنى من داخل وحداتها -->
+      <section class="view" id="view-voucherIn"></section>
+      <section class="view" id="view-voucherOut"></section>
+      <section class="view" id="view-log"></section>
+      <section class="view" id="view-reports"></section>
+      <section class="view" id="view-pricing"></section>
+      <section class="view" id="view-accounting"></section>
+      <section class="view" id="view-stocktake"></section>
+      <section class="view" id="view-settings"></section>
+    </main>
 
     <footer style="padding:14px 18px;color:var(--text-mute);font-size:.74rem;text-align:center">
       <span id="appVersion"></span> — اختصارات: Alt+1 لوحة القيادة، Alt+2 الأصناف، Alt+3 وارد، Alt+4 صرف، Alt+5 السجل
