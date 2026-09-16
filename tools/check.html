@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>فحص ملفات النظام</title>
+<style>
+  body { font-family: "Segoe UI", system-ui, sans-serif; background:#0E1D24; color:#E6EEF1;
+         padding:18px; margin:0; line-height:1.7; }
+  h1 { font-size:1.05rem; margin:0 0 4px; }
+  .sub { font-size:.8rem; color:#8FAEB8; margin-bottom:16px; }
+  .row { display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:7px;
+         font-family: ui-monospace, monospace; font-size:.78rem; direction:ltr; text-align:left; }
+  .ok   { background:rgba(45,160,110,.12); color:#7FD8AC; }
+  .bad  { background:rgba(228,105,94,.15); color:#FFB3AC; font-weight:600; }
+  .wait { background:rgba(255,255,255,.05); color:#9FB8C0; }
+  .tag { flex:none; width:44px; }
+  #summary { margin-top:18px; padding:14px; border-radius:10px; font-size:.9rem;
+             background:rgba(255,255,255,.06); }
+  #summary.good { background:rgba(45,160,110,.16); }
+  #summary.fail { background:rgba(228,105,94,.16); }
+  code { background:rgba(0,0,0,.35); padding:1px 5px; border-radius:4px; }
+  button { font:inherit; padding:9px 16px; border:0; border-radius:8px; background:#0F6E8C;
+           color:#fff; cursor:pointer; margin-top:14px; }
+</style>
+</head>
+<body>
+
+<h1>فحص ملفات نظام المخزن</h1>
+<div class="sub">يتحقق من وجود كل ملف يحتاجه النظام، ومن الوصول إلى مكتبة Supabase.</div>
+
+<div id="list"></div>
+<div id="summary">جارٍ الفحص...</div>
+<button onclick="location.reload()">إعادة الفحص</button>
+
+<script>
+// المسارات نسبية إلى جذر المشروع (هذا الملف داخل tools/)
+var FILES = [
+  "index.html",
+  "assets/css/main.css",
+  "assets/css/login.css",
+  "assets/css/print.css",
+  "src/config.js",
+  "src/main.js",
+  "src/core/dom.js",
+  "src/core/format.js",
+  "src/core/validation.js",
+  "src/core/ui.js",
+  "src/core/store.js",
+  "src/data/client.js",
+  "src/data/repo.js",
+  "src/data/realtime.js",
+  "src/data/excel.js",
+  "src/auth/roles.js",
+  "src/auth/auth.js",
+  "src/auth/login.js",
+  "src/views/shared.js",
+  "src/views/print.js",
+  "src/views/dashboard.js",
+  "src/views/items.js",
+  "src/views/voucher.js",
+  "src/views/log.js",
+  "src/views/reports.js",
+  "src/views/pricing.js",
+  "src/views/accounting.js",
+  "src/views/stocktake.js",
+  "src/views/settings.js"
+];
+
+var CDN = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
+var base = location.href.replace(/\/tools\/[^/]*$/, "/");
+var list = document.getElementById("list");
+var missing = [];
+var done = 0;
+
+function add(label, cls, note) {
+  var d = document.createElement("div");
+  d.className = "row " + cls;
+  d.innerHTML = '<span class="tag">' + (cls === "ok" ? "OK" : cls === "bad" ? "MISSING" : "...") +
+                "</span><span>" + label + (note ? "  — " + note : "") + "</span>";
+  list.appendChild(d);
+  return d;
+}
+
+function finish() {
+  var box = document.getElementById("summary");
+  if (missing.length === 0) {
+    box.className = "good";
+    box.innerHTML = "<b>كل الملفات موجودة.</b><br>لو النظام لسه لا يعمل، المشكلة في الوصول لمكتبة Supabase — راجع آخر سطر في القائمة.";
+  } else {
+    box.className = "fail";
+    box.innerHTML = "<b>" + missing.length + " ملف مفقود أو اسمه مختلف:</b><br>" +
+      missing.map(function (m) { return "<code>" + m + "</code>"; }).join("<br>") +
+      "<br><br>ارفع هذه الملفات في مساراتها بالضبط. الأسماء حسّاسة لحالة الأحرف.";
+  }
+}
+
+FILES.forEach(function (path) {
+  var row = add(path, "wait");
+  fetch(base + path, { method: "GET", cache: "no-store" })
+    .then(function (res) {
+      if (res.ok) { row.className = "row ok"; row.querySelector(".tag").textContent = "OK"; }
+      else { row.className = "row bad"; row.querySelector(".tag").textContent = res.status; missing.push(path); }
+    })
+    .catch(function () {
+      row.className = "row bad"; row.querySelector(".tag").textContent = "ERR"; missing.push(path);
+    })
+    .finally(function () { if (++done === FILES.length) finish(); });
+});
+
+var cdnRow = add("cdn.jsdelivr.net (مكتبة Supabase)", "wait");
+fetch(CDN, { cache: "no-store" })
+  .then(function (res) {
+    if (res.ok) { cdnRow.className = "row ok"; cdnRow.querySelector(".tag").textContent = "OK"; }
+    else { cdnRow.className = "row bad"; cdnRow.querySelector(".tag").textContent = res.status; }
+  })
+  .catch(function () {
+    cdnRow.className = "row bad";
+    cdnRow.querySelector(".tag").textContent = "BLOCK";
+    cdnRow.querySelector("span:last-child").textContent =
+      "cdn.jsdelivr.net محجوب على هذه الشبكة — المكتبة لن تُحمَّل والنظام لن يعمل";
+  });
+</script>
+</body>
+</html>
