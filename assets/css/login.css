@@ -65,6 +65,11 @@
 .nameplate {
   border: 1px solid rgba(160,200,212,.25); border-radius: 6px;
   padding: 10px 14px; margin-bottom: 20px; background: rgba(6,20,26,.5);
+  display: flex; align-items: center; gap: 12px;
+}
+.nameplate .plate-logo {
+  width: 42px; height: 42px; flex: none; object-fit: contain;
+  border-radius: 6px; background: rgba(255,255,255,.92); padding: 3px;
 }
 .nameplate .title { font-size: 1.02rem; font-weight: 600; letter-spacing: .01em; }
 .nameplate .sub { font-size: .74rem; color: #86A6B0; font-family: var(--mono); margin-top: 2px; }
