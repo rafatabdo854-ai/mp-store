@@ -1,64 +1,447 @@
-/** لوحة القيادة — كل الأرقام تأتي من نداء واحد dashboard_summary(). */
-import { byId, fillTable, esc } from "../core/dom.js";
-import { fmtNum, fmtMoney, fmtDate } from "../core/format.js";
+/**
+ * لوحة القيادة الذكية.
+ * مبنية على سؤال واحد: "ما الذي يحتاج تدخّلي اليوم؟"
+ * كل رقم فيها قابل للضغط ويأخذك للشاشة المناسبة بالمرشّح جاهزًا.
+ */
+import { byId, esc, fillTable, onClick } from "../core/dom.js";
+import { fmtNum, fmtMoney, fmtDate, fmtDateTime } from "../core/format.js";
 import { reports } from "../data/repo.js";
-import { set, get, on } from "../core/store.js";
+import { set } from "../core/store.js";
 import { can } from "../auth/roles.js";
-import { toastError } from "../core/ui.js";
+import { toast, toastError } from "../core/ui.js";
+import { exportRows } from "../data/excel.js";
+import { printTable } from "./print.js";
 
-let subscribed = false;
+const PERIOD_KEY = "mpstore.dash.period";
+let built = false;
+let period = Number(localStorage.getItem(PERIOD_KEY)) || 30;
+let data = null;
 
+/* ------------------------- البناء ------------------------- */
+function build() {
+  byId("view-dashboard").innerHTML = `
+    <div class="dash-head">
+      <div class="period" role="group" aria-label="فترة التحليل">
+        ${[7, 30, 90].map((d) => `<button data-period="${d}">${d} يوم</button>`).join("")}
+      </div>
+      <span class="spacer"></span>
+      <span class="hint" id="dashStamp"></span>
+    </div>
+
+    <div id="dashAlerts" class="alerts"></div>
+
+    <div class="stat-grid" id="dashCards"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2 style="border:0;margin:0;padding:0;background:none">حركة المخزن</h2>
+        <span class="spacer"></span>
+        <span class="legend"><i class="sw in"></i>وارد <i class="sw out"></i>صرف</span>
+      </div>
+      <div id="dashChart" class="chart-box"></div>
+      <div class="hint" id="dashTrend"></div>
+    </div>
+
+    <div class="panel" id="riskPanel">
+      <div class="panel-head">
+        <h2 style="border:0;margin:0;padding:0;background:none">أصناف على وشك النفاد</h2>
+        <span class="spacer"></span>
+        <span class="hint">التقدير من متوسط الصرف خلال ٩٠ يومًا</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>الكود</th><th>الصنف</th><th class="center">الرصيد</th>
+            <th class="center">معدل الصرف اليومي</th><th class="center">يكفي</th><th></th>
+          </tr></thead>
+          <tbody id="riskBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" id="reorderPanel">
+      <div class="panel-head">
+        <h2 style="border:0;margin:0;padding:0;background:none">اقتراح طلب شراء</h2>
+        <span class="spacer"></span>
+        <button class="btn ghost small" id="reorderExport">تنزيل Excel</button>
+        <button class="btn ghost small" id="reorderPrint">طباعة</button>
+      </div>
+      <div class="hint">كميات تكفي ٤٥ يومًا من الاستهلاك الحالي للأصناف المهدَّدة.</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>الكود</th><th>الصنف</th><th class="center">الرصيد</th>
+            <th class="center">الكمية المقترحة</th><th data-col="value">التكلفة التقديرية</th>
+          </tr></thead>
+          <tbody id="reorderBody"></tbody>
+        </table>
+      </div>
+      <div class="hint" id="reorderTotal"></div>
+    </div>
+
+    <div class="dash-cols">
+      <div class="panel">
+        <h2>الأكثر صرفًا</h2>
+        <div id="dashTopBars"></div>
+      </div>
+      <div class="panel">
+        <h2>أنشط المشاريع</h2>
+        <div id="dashProjects"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="stagnantPanel">
+      <h2>رأس مال راكد</h2>
+      <div class="hint">أصناف لها رصيد ولم تُصرف منذ أكثر من ٦ أشهر.</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>الكود</th><th>الصنف</th><th class="center">الرصيد</th>
+            <th>آخر صرف</th><th data-col="value">القيمة المجمّدة</th></tr></thead>
+          <tbody id="stagnantBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>الأرصدة حسب الفئة</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>الفئة</th><th class="center">الأصناف</th><th class="center">الكمية</th>
+            <th class="center">تحت الحد</th><th data-col="value">القيمة</th></tr></thead>
+          <tbody id="dashCategoryBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2 style="border:0;margin:0;padding:0;background:none">آخر الحركات</h2>
+        <span class="spacer"></span>
+        <button class="btn ghost small" data-goto="log">عرض السجل كاملًا</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>النوع</th><th>رقم الإذن</th><th>التاريخ</th><th>الصنف</th>
+            <th class="center">الكمية</th><th>الجهة / المشروع</th><th>بواسطة</th></tr></thead>
+          <tbody id="dashRecentBody"></tbody>
+        </table>
+      </div>
+    </div>`;
+
+  // تبديل الفترة
+  onClick(byId("view-dashboard"), "[data-period]", (btn) => {
+    period = Number(btn.dataset.period);
+    localStorage.setItem(PERIOD_KEY, String(period));
+    markPeriod();
+    load();
+  });
+
+  // كل ما هو قابل للضغط ينقل لشاشة بمرشّح جاهز
+  onClick(byId("view-dashboard"), "[data-goto]", (node) => {
+    const view = node.dataset.goto;
+    const params = Object.fromEntries(new URLSearchParams(node.dataset.params || ""));
+    if (window.mpGo) window.mpGo(view, params);
+    else location.hash = view;
+  });
+
+  onClick(byId("view-dashboard"), "[data-scroll]", (node) => {
+    byId(node.dataset.scroll)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  byId("reorderExport").onclick = exportReorder;
+  byId("reorderPrint").onclick = printReorder;
+
+  markPeriod();
+  built = true;
+}
+
+const markPeriod = () => {
+  byId("view-dashboard").querySelectorAll("[data-period]").forEach((b) =>
+    b.classList.toggle("on", Number(b.dataset.period) === period));
+};
+
+/* ------------------------- التحميل ------------------------- */
 export async function render() {
-  if (!subscribed) { on("summary", (s) => { if (s) paint(s); }); subscribed = true; }
-  const cards = byId("dashCards");
-  if (!get("summary")) {
-    cards.innerHTML = Array.from({ length: 5 },
-      () => `<div class="stat"><div class="skeleton" style="width:60%"></div>
-             <div class="skeleton" style="width:40%;height:24px;margin-top:8px"></div></div>`).join("");
-  }
+  if (!built) build();
+  if (data) paint();
+  await load();
+}
+
+async function load() {
+  if (!data) skeleton();
   try {
-    const s = await reports.summary();
-    set({ summary: s });
-    paint(s);
+    data = await reports.insights(period);
+    set({ summary: data.kpi });
+    paint();
   } catch (err) {
-    toastError(err.message);
+    // الدالة غير موجودة = ملف sql/05_dashboard.sql لم يُشغَّل بعد
+    const missing = /dashboard_insights|function .* does not exist|PGRST202/i.test(err.message || "");
+    byId("dashAlerts").innerHTML = `
+      <div class="alert warn"><span class="dot"></span><span class="txt">
+        <b>${missing ? "لوحة القيادة الذكية غير مفعّلة" : "تعذّر تحميل اللوحة"}</b>
+        <span>${missing
+          ? "شغّل ملف sql/05_dashboard.sql مرة واحدة في Supabase SQL Editor ثم حدّث الصفحة."
+          : (err.message || "")}</span></span></div>`;
+    byId("dashCards").innerHTML = "";
+    if (!missing) toastError(err.message);
   }
 }
 
-function paint(s) {
-  const money = can("view_pricing")
-    ? `<div class="stat money"><div class="label">قيمة المخزون</div>
-       <div class="value">${fmtMoney(s.stock_value)}</div></div>` : "";
+function skeleton() {
+  byId("dashCards").innerHTML = Array.from({ length: 5 }, () =>
+    `<div class="stat"><div class="skeleton" style="width:60%"></div>
+     <div class="skeleton" style="width:40%;height:22px;margin-top:8px"></div></div>`).join("");
+}
+
+/* ------------------------- الرسم ------------------------- */
+function paint() {
+  const k = data.kpi;
+  const showValue = can("view_pricing");
+
+  byId("dashStamp").textContent = `آخر تحديث ${fmtDateTime(new Date())}`;
+  paintAlerts(k, data.movement);
 
   byId("dashCards").innerHTML = `
-    <div class="stat"><div class="label">عدد الأصناف</div><div class="value">${fmtNum(s.items_count)}</div></div>
-    <div class="stat"><div class="label">إجمالي الكميات</div><div class="value">${fmtNum(s.total_stock)}</div></div>
-    <div class="stat warn"><div class="label">تحت الحد الأدنى</div><div class="value">${fmtNum(s.low_stock)}</div></div>
-    <div class="stat danger"><div class="label">نفدت من المخزن</div><div class="value">${fmtNum(s.out_of_stock)}</div></div>
-    <div class="stat"><div class="label">حركات اليوم</div><div class="value">${fmtNum(s.txn_today)}</div></div>
-    ${money}`;
+    <button class="stat click" data-goto="items">
+      <div class="label">الأصناف النشطة</div><div class="value">${fmtNum(k.items_count)}</div></button>
+    <div class="stat"><div class="label">إجمالي الكميات</div><div class="value">${fmtNum(k.total_stock)}</div></div>
+    <button class="stat warn click" data-goto="items" data-params="stock=low">
+      <div class="label">تحت الحد الأدنى</div><div class="value">${fmtNum(k.low_stock)}</div></button>
+    <button class="stat danger click" data-goto="items" data-params="stock=zero">
+      <div class="label">نفد من المخزن</div><div class="value">${fmtNum(k.out_of_stock)}</div></button>
+    <button class="stat click" data-goto="log">
+      <div class="label">أذون خلال ${period} يوم</div>
+      <div class="value">${fmtNum(data.movement.vouchers_now)}</div></button>
+    ${showValue ? `<div class="stat money"><div class="label">قيمة المخزون</div>
+      <div class="value">${fmtMoney(k.stock_value)}</div></div>` : ""}`;
 
-  const top = s.top_out || [];
-  const max = Math.max(1, ...top.map((t) => Number(t.qty)));
-  byId("dashTopBars").innerHTML = top.length ? top.map((t) => `
+  paintChart(data.series);
+  paintTrend(data.movement);
+  paintRisk();
+  paintReorder(showValue);
+  paintBars();
+  paintProjects();
+  paintStagnant(showValue);
+  paintCategories(showValue);
+  paintRecent();
+
+  document.querySelectorAll("#view-dashboard [data-col='value']").forEach((n) => { n.hidden = !showValue; });
+}
+
+/** مركز الإجراءات: لا يظهر إلا ما يحتاج تدخّلًا فعليًا. */
+function paintAlerts(k, mv) {
+  const alerts = [];
+
+  if (k.out_of_stock > 0) alerts.push({
+    kind: "danger", title: `${fmtNum(k.out_of_stock)} صنف نفد بالكامل`,
+    body: "لا يمكن الصرف منها حتى يتم التوريد.",
+    action: "عرض الأصناف", goto: "items", params: { stock: "zero" },
+  });
+
+  if (k.urgent > 0) alerts.push({
+    kind: "danger", title: `${fmtNum(k.urgent)} صنف يكفي ١٤ يومًا أو أقل`,
+    body: "بمعدل الصرف الحالي ستنفد قبل نهاية الأسبوعين.",
+    action: "عرض القائمة", scroll: "riskPanel",
+  });
+
+  if (k.low_stock > 0) alerts.push({
+    kind: "warn", title: `${fmtNum(k.low_stock)} صنف تحت الحد الأدنى`,
+    body: "راجع اقتراح طلب الشراء أسفل الصفحة.",
+    action: "عرض الأصناف", goto: "items", params: { stock: "low" },
+  });
+
+  if (mv.out_change !== null && Number(mv.out_change) >= 40) alerts.push({
+    kind: "warn", title: `الصرف ارتفع ${fmtNum(mv.out_change)}% عن الفترة السابقة`,
+    body: `${fmtNum(mv.out_now)} وحدة خلال ${period} يوم مقابل ${fmtNum(mv.out_prev)} قبلها.`,
+    action: "فحص السجل", goto: "log", params: { type: "out" },
+  });
+
+  if (can("view_pricing") && k.unpriced > 0) alerts.push({
+    kind: "warn", title: `${fmtNum(k.unpriced)} صنف له رصيد بلا سعر`,
+    body: "قيمة المخزون المعروضة أقل من الحقيقة.",
+    action: "تسعير الأصناف", goto: "pricing",
+  });
+
+  if (can("view_pricing") && k.stagnant > 0 && Number(k.stagnant_value) > 0) alerts.push({
+    kind: "info", title: `${fmtMoney(k.stagnant_value)} رأس مال راكد`,
+    body: `${fmtNum(k.stagnant)} صنف بلا صرف منذ أكثر من ٦ أشهر.`,
+    action: "عرض التفاصيل", scroll: "stagnantPanel",
+  });
+
+  byId("dashAlerts").innerHTML = alerts.length
+    ? alerts.map((a) => {
+        const attrs = a.goto
+          ? `data-goto="${a.goto}" data-params="${esc(new URLSearchParams(a.params || {}).toString())}"`
+          : `data-scroll="${a.scroll}"`;
+        return `
+        <button class="alert ${a.kind}" ${attrs}>
+          <span class="dot"></span>
+          <span class="txt"><b>${esc(a.title)}</b><span>${esc(a.body)}</span></span>
+          <span class="cta">${esc(a.action)}</span>
+        </button>`;
+      }).join("")
+    : `<div class="alert ok"><span class="dot"></span>
+        <span class="txt"><b>كل الأرصدة في وضع آمن</b>
+        <span>لا يوجد صنف نفد أو مهدَّد بالنفاد خلال الفترة القادمة.</span></span></div>`;
+}
+
+/** رسم بياني بالـ SVG — بلا مكتبات خارجية. */
+function paintChart(series) {
+  let points = series || [];
+  if (!points.length) { byId("dashChart").innerHTML = `<div class="empty">لا توجد حركة</div>`; return; }
+
+  // فوق شهر: اجمع أسبوعيًا حتى تبقى الأعمدة مقروءة
+  if (points.length > 31) {
+    const weeks = [];
+    for (let i = 0; i < points.length; i += 7) {
+      const chunk = points.slice(i, i + 7);
+      weeks.push({
+        day: chunk[0].day,
+        label: `أسبوع ${fmtDate(chunk[0].day)}`,
+        in_qty: chunk.reduce((s, p) => s + Number(p.in_qty), 0),
+        out_qty: chunk.reduce((s, p) => s + Number(p.out_qty), 0),
+      });
+    }
+    points = weeks;
+  }
+
+  const W = 800, H = 200, padB = 26, padT = 10;
+  const max = Math.max(1, ...points.map((p) => Math.max(Number(p.in_qty), Number(p.out_qty))));
+  const slot = W / points.length;
+  const barW = Math.max(2, Math.min(14, slot / 2.6));
+  const scale = (v) => (Number(v) / max) * (H - padB - padT);
+
+  const bars = points.map((p, i) => {
+    const cx = i * slot + slot / 2;
+    const hIn = scale(p.in_qty), hOut = scale(p.out_qty);
+    const label = p.label || fmtDate(p.day);
+    return `
+      <g>
+        <title>${esc(label)} — وارد ${fmtNum(p.in_qty)} / صرف ${fmtNum(p.out_qty)}</title>
+        <rect x="${(cx - barW - 1).toFixed(1)}" y="${(H - padB - hIn).toFixed(1)}"
+              width="${barW}" height="${Math.max(hIn, 0).toFixed(1)}" class="b-in" rx="2"></rect>
+        <rect x="${(cx + 1).toFixed(1)}" y="${(H - padB - hOut).toFixed(1)}"
+              width="${barW}" height="${Math.max(hOut, 0).toFixed(1)}" class="b-out" rx="2"></rect>
+      </g>`;
+  }).join("");
+
+  const ticks = [0, 0.5, 1].map((f) => {
+    const y = (H - padB) - f * (H - padB - padT);
+    return `<line x1="0" y1="${y.toFixed(1)}" x2="${W}" y2="${y.toFixed(1)}" class="grid"></line>
+            <text x="${W - 4}" y="${(y - 3).toFixed(1)}" class="tick" text-anchor="end">${fmtNum(Math.round(max * f))}</text>`;
+  }).join("");
+
+  const first = points[0], last = points[points.length - 1];
+  byId("dashChart").innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="حركة الوارد والصرف">
+      ${ticks}${bars}
+      <text x="4" y="${H - 8}" class="tick s">${esc(fmtDate(last.day))}</text>
+      <text x="${W - 4}" y="${H - 8}" class="tick s" text-anchor="end">${esc(fmtDate(first.day))}</text>
+    </svg>`;
+}
+
+function paintTrend(mv) {
+  const arrow = (v) => (v === null || v === undefined ? ""
+    : Number(v) > 0 ? `▲ ${fmtNum(v)}%`
+    : Number(v) < 0 ? `▼ ${fmtNum(Math.abs(Number(v)))}%` : "بلا تغيير");
+  byId("dashTrend").innerHTML =
+    `وارد ${fmtNum(mv.in_now)} وحدة <span class="${Number(mv.in_change) > 0 ? "up" : "down"}">${arrow(mv.in_change)}</span>
+     — صرف ${fmtNum(mv.out_now)} وحدة <span class="${Number(mv.out_change) > 0 ? "up" : "down"}">${arrow(mv.out_change)}</span>
+     مقارنة بالـ ${period} يومًا السابقة.`;
+}
+
+function coverPill(days) {
+  if (days === null || days === undefined) return `<span class="pill">—</span>`;
+  const cls = days <= 7 ? "zero" : days <= 14 ? "out" : days <= 30 ? "low" : "ok";
+  return `<span class="pill ${cls}">${fmtNum(days)} يوم</span>`;
+}
+
+function paintRisk() {
+  const rows = data.risk || [];
+  byId("riskPanel").hidden = rows.length === 0;
+  fillTable(byId("riskBody"), rows.map((r) => `
+    <tr>
+      <td class="code">${esc(r.code)}</td>
+      <td>${esc(r.label)}</td>
+      <td class="num center">${fmtNum(r.balance)} ${esc(r.unit)}</td>
+      <td class="num center">${fmtNum(r.per_day, 2)}</td>
+      <td class="center">${coverPill(r.days_cover)}</td>
+      <td><button class="btn ghost small" data-goto="log"
+        data-params="${esc(new URLSearchParams({ search: r.code }).toString())}">حركته</button></td>
+    </tr>`), 6, "لا يوجد صنف مهدَّد بالنفاد");
+}
+
+function paintReorder(showValue) {
+  const rows = data.reorder || [];
+  byId("reorderPanel").hidden = rows.length === 0;
+  fillTable(byId("reorderBody"), rows.map((r) => `
+    <tr>
+      <td class="code">${esc(r.code)}</td>
+      <td>${esc(r.label)}</td>
+      <td class="num center">${fmtNum(r.balance)}</td>
+      <td class="num center"><b>${fmtNum(r.suggest_qty)}</b> ${esc(r.unit)}</td>
+      ${showValue ? `<td class="num">${fmtMoney(r.suggest_value)}</td>` : ""}
+    </tr>`), showValue ? 5 : 4, "لا توجد أصناف تحتاج توريدًا");
+
+  const total = rows.reduce((s, r) => s + Number(r.suggest_value || 0), 0);
+  byId("reorderTotal").textContent = rows.length && showValue
+    ? `${fmtNum(rows.length)} صنف — التكلفة التقديرية ${fmtMoney(total)}` : "";
+}
+
+function paintBars() {
+  const rows = data.top_out || [];
+  const max = Math.max(1, ...rows.map((t) => Number(t.qty)));
+  byId("dashTopBars").innerHTML = rows.length ? rows.map((t) => `
     <div class="bar-row">
       <div class="bar-track">
         <div class="bar-fill" style="width:${(Number(t.qty) / max * 100).toFixed(1)}%"></div>
         <span class="bar-label">${esc(t.item_name)}</span>
       </div>
       <div class="num">${fmtNum(t.qty)}</div>
-    </div>`).join("")
-    : `<div class="empty">لا توجد حركات صرف خلال آخر ٩٠ يومًا</div>`;
+    </div>`).join("") : `<div class="empty">لا توجد حركات صرف في هذه الفترة</div>`;
+}
 
-  fillTable(byId("dashCategoryBody"), (s.by_category || []).map((c) => `
+function paintProjects() {
+  const rows = data.busiest_projects || [];
+  const max = Math.max(1, ...rows.map((p) => Number(p.qty)));
+  byId("dashProjects").innerHTML = rows.length ? rows.map((p) => `
+    <div class="bar-row">
+      <div class="bar-track">
+        <div class="bar-fill alt" style="width:${(Number(p.qty) / max * 100).toFixed(1)}%"></div>
+        <span class="bar-label">${esc(p.project)} — ${fmtNum(p.vouchers)} إذن</span>
+      </div>
+      <div class="num">${fmtNum(p.qty)}</div>
+    </div>`).join("") : `<div class="empty">لا توجد مشاريع بها صرف</div>`;
+}
+
+function paintStagnant(showValue) {
+  const rows = data.stagnant || [];
+  byId("stagnantPanel").hidden = rows.length === 0 || !showValue;
+  fillTable(byId("stagnantBody"), rows.map((r) => `
     <tr>
+      <td class="code">${esc(r.code)}</td>
+      <td>${esc(r.label)}</td>
+      <td class="num center">${fmtNum(r.balance)}</td>
+      <td>${r.last_out ? fmtDate(r.last_out) : "لم يُصرف مطلقًا"}</td>
+      ${showValue ? `<td class="num">${fmtMoney(r.value)}</td>` : ""}
+    </tr>`), showValue ? 5 : 4, "لا يوجد رصيد راكد");
+}
+
+function paintCategories(showValue) {
+  fillTable(byId("dashCategoryBody"), (data.by_category || []).map((c) => `
+    <tr class="click" data-goto="items"
+        data-params="${esc(new URLSearchParams({ category: c.category }).toString())}">
       <td>${esc(c.category)}</td>
       <td class="num center">${fmtNum(c.items)}</td>
       <td class="num center">${fmtNum(c.qty)}</td>
-      ${can("view_pricing") ? `<td class="num">${fmtMoney(c.value)}</td>` : ""}
-    </tr>`), 4, "لا توجد أصناف بعد");
+      <td class="center">${Number(c.at_risk) > 0
+        ? `<span class="pill low">${fmtNum(c.at_risk)}</span>` : `<span class="pill ok">0</span>`}</td>
+      ${showValue ? `<td class="num">${fmtMoney(c.value)}</td>` : ""}
+    </tr>`), showValue ? 5 : 4, "لا توجد أصناف بعد");
+}
 
-  fillTable(byId("dashRecentBody"), (s.recent || []).map((t) => `
+function paintRecent() {
+  fillTable(byId("dashRecentBody"), (data.recent || []).map((t) => `
     <tr>
       <td><span class="pill ${t.type}">${t.type === "in" ? "وارد" : "صرف"}</span></td>
       <td class="code">${esc(t.voucher_no)}</td>
@@ -68,9 +451,42 @@ function paint(s) {
       <td>${esc(t.party || t.project || "-")}</td>
       <td>${esc(t.created_by_name || "-")}</td>
     </tr>`), 7, "لم تُسجَّل أي حركة بعد");
+}
 
-  // إخفاء عمود القيمة لمن لا يملك صلاحية التسعير
-  document.querySelectorAll("[data-col='value']").forEach((n) => {
-    n.hidden = !can("view_pricing");
+/* ------------------------- تصدير طلب الشراء ------------------------- */
+function reorderRows() {
+  const showValue = can("view_pricing");
+  return (data?.reorder || []).map((r) => {
+    const row = {
+      "الكود": r.code, "الصنف": r.label, "الرصيد الحالي": r.balance,
+      "الحد الأدنى": r.threshold,
+      "يكفي (يوم)": r.days_cover ?? "",
+      "الكمية المقترحة": r.suggest_qty, "الوحدة": r.unit,
+    };
+    if (showValue) {
+      row["سعر الوحدة"] = Number(r.unit_price);
+      row["التكلفة التقديرية"] = Number(r.suggest_value);
+    }
+    return row;
+  });
+}
+
+async function exportReorder() {
+  const rows = reorderRows();
+  if (!rows.length) return toastError("لا توجد أصناف تحتاج توريدًا");
+  await exportRows(rows, "اقتراح_طلب_شراء", "طلب شراء");
+  toast("تم تنزيل طلب الشراء");
+}
+
+function printReorder() {
+  const rows = reorderRows();
+  if (!rows.length) return toastError("لا توجد أصناف تحتاج توريدًا");
+  const total = (data.reorder || []).reduce((s, r) => s + Number(r.suggest_value || 0), 0);
+  printTable({
+    title: "اقتراح طلب شراء",
+    subtitle: `مبني على متوسط الصرف خلال ٩٠ يومًا — عدد الأصناف: ${rows.length}`,
+    headers: Object.keys(rows[0]),
+    rows: rows.map((r) => Object.values(r)),
+    footer: can("view_pricing") ? `التكلفة التقديرية الإجمالية: ${fmtMoney(total)}` : "",
   });
 }
