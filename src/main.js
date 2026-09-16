@@ -92,18 +92,35 @@ async function boot(profile) {
 }
 
 /* ------------------------- التنقّل ------------------------- */
-const currentView = () => (location.hash.replace("#", "") || "dashboard");
+/** الرابط يحمل الشاشة ومعها مرشّحاتها: #items?stock=low */
+function parseHash() {
+  const raw = location.hash.replace(/^#/, "");
+  const [view, query] = raw.split("?");
+  return {
+    view: view || "dashboard",
+    params: Object.fromEntries(new URLSearchParams(query || "")),
+  };
+}
+
+const currentView = () => parseHash().view;
+
+/** تُستخدمها الشاشات للانتقال لشاشة أخرى بمرشّح جاهز. */
+export function go(view, params = {}) {
+  const query = new URLSearchParams(params).toString();
+  location.hash = query ? `${view}?${query}` : view;
+}
+window.mpGo = go;
 
 function routeFromHash() {
-  let view = currentView();
-  if (!VIEWS[view]) view = "dashboard";
+  let { view, params } = parseHash();
+  if (!VIEWS[view]) { view = "dashboard"; params = {}; }
   const perm = VIEWS[view].permission;
-  if (perm && !can(perm)) { toastError("ليس لديك صلاحية لفتح هذه الشاشة"); view = "dashboard"; }
+  if (perm && !can(perm)) { toastError("ليس لديك صلاحية لفتح هذه الشاشة"); view = "dashboard"; params = {}; }
 
   $$(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   $$(".view").forEach((s) => s.classList.toggle("active", s.id === `view-${view}`));
   window.scrollTo({ top: 0 });
-  try { VIEWS[view].render(); } catch (err) { console.error(err); toastError("تعذّر عرض الشاشة"); }
+  try { VIEWS[view].render(params); } catch (err) { console.error(err); toastError("تعذّر عرض الشاشة"); }
 }
 
 function applyPermissions() {
