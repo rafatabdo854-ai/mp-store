@@ -21,6 +21,7 @@ const MATRIX = {
   manage_users:   ["admin"],
   view_pricing:   ["admin", "deputy_manager", "accountant"],
   view_audit:     ["admin", "accountant"],
+  accounting:     ["admin", "accountant"],
 };
 
 export const role = () => get("profile")?.role || "viewer";
