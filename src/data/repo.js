@@ -103,6 +103,8 @@ export const txns = {
 /* ------------------------- التقارير ------------------------- */
 export const reports = {
   summary()                         { return run(db().rpc("dashboard_summary")); },
+  /** تحليلات لوحة القيادة الذكية في نداء واحد. */
+  insights(days = 30)               { return run(db().rpc("dashboard_insights", { p_days: days })); },
   itemMovement(itemId, from, to)    { return run(db().rpc("item_movement", { p_item_id: itemId, p_from: from, p_to: to })); },
   project(name, from, to)           { return run(db().rpc("project_report", { p_project: name, p_from: from, p_to: to })); },
 
