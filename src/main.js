@@ -23,6 +23,14 @@ import { refreshSummary } from "./views/shared.js";
 const voucherIn  = makeVoucherView("in");
 const voucherOut = makeVoucherView("out");
 
+/** عنوان كل شاشة كما يظهر في الشريط العلوي */
+const TITLES = {
+  dashboard: "لوحة القيادة", items: "الأصناف", voucherIn: "إذن وارد", voucherOut: "إذن صرف",
+  log: "سجل الحركات", reports: "التقارير", pricing: "التسعير", stocktake: "الجرد", settings: "الإعدادات",
+};
+
+const closeNav = () => document.body.classList.remove("nav-open");
+
 const VIEWS = {
   dashboard:  { render: dashboard.render,     permission: null },
   items:      { render: itemsView.render,     permission: null },
@@ -117,23 +125,28 @@ function routeFromHash() {
   const perm = VIEWS[view].permission;
   if (perm && !can(perm)) { toastError("ليس لديك صلاحية لفتح هذه الشاشة"); view = "dashboard"; params = {}; }
 
-  $$(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+  $$("[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+  byId("pageTitle").textContent = TITLES[view] || "";
+  closeNav();
   $$(".view").forEach((s) => s.classList.toggle("active", s.id === `view-${view}`));
   window.scrollTo({ top: 0 });
   try { VIEWS[view].render(params); } catch (err) { console.error(err); toastError("تعذّر عرض الشاشة"); }
 }
 
 function applyPermissions() {
-  $$(".tabs button").forEach((btn) => {
+  $$("[data-view]").forEach((btn) => {
     const perm = VIEWS[btn.dataset.view]?.permission;
     btn.hidden = Boolean(perm && !can(perm));
   });
 }
 
 function wireChrome() {
-  $$(".tabs button").forEach((btn) => {
+  $$("[data-view]").forEach((btn) => {
     btn.addEventListener("click", () => { location.hash = btn.dataset.view; });
   });
+
+  byId("btnMenu").addEventListener("click", () => document.body.classList.toggle("nav-open"));
+  byId("navBackdrop").addEventListener("click", closeNav);
 
   byId("btnLogout").addEventListener("click", async () => {
     const ok = await confirmDialog({ title: "تسجيل الخروج", message: "هل تريد إنهاء الجلسة الآن؟" });
