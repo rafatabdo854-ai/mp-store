@@ -87,13 +87,21 @@ function build() {
   built = true;
 }
 
-export function render() {
+export function render(params = {}) {
   if (!built) build();
+  if (Object.keys(params).length) {
+    state = { ...state, type: params.type || "", project: params.project || "",
+              search: params.search || "", from: params.from || "", to: params.to || "", page: 0 };
+    byId("logType").value = state.type;
+    byId("logSearch").value = state.search;
+    byId("logFrom").value = state.from;
+    byId("logTo").value = state.to;
+  }
   const sel = byId("logProject");
   const current = sel.value;
   sel.innerHTML = `<option value="">كل المشاريع</option>` +
     get("projects").map((p) => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join("");
-  sel.value = current;
+  sel.value = state.project || current;
   load();
 }
 
