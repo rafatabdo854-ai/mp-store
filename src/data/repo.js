@@ -121,6 +121,24 @@ export const reports = {
 };
 
 /* ------------------------- الجرد ------------------------- */
+/* ------------------------- المحاسبة ------------------------- */
+export const accounting = {
+  valuation(from, to)      { return run(db().rpc("valuation_report", { p_from: from, p_to: to })); },
+  projectCost(from, to)    { return run(db().rpc("project_cost", { p_from: from, p_to: to })); },
+  projectDetail(project, from, to) {
+    return run(db().rpc("project_cost_detail", { p_project: project, p_from: from, p_to: to }));
+  },
+  purchases(from, to)      { return run(db().rpc("purchase_vouchers", { p_from: from, p_to: to })); },
+  review(payload) {
+    return run(db().rpc("set_voucher_review", {
+      p_voucher: payload.voucher_no, p_invoice_no: payload.invoice_no || "",
+      p_amount: payload.invoice_amount, p_status: payload.status, p_notes: payload.notes || "",
+    }));
+  },
+  priceReview(gap = 25)    { return run(db().rpc("price_review", { p_gap: gap })); },
+  recalcCost()             { return run(db().rpc("recalc_avg_cost")); },
+};
+
 export const stocktakes = {
   list()        { return run(db().from("stocktakes").select("*").order("created_at", { ascending: false }).limit(50)); },
   lines(id)     { return run(db().from("stocktake_lines").select("*").eq("stocktake_id", id)); },
