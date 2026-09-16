@@ -314,8 +314,9 @@ function donut({ title, segments, big, cap }) {
         <div class="mid"><div class="big">${esc(big)}</div><div class="cap">${esc(cap)}</div></div>
       </div>
       <div class="keys">
-        ${segments.map((seg) => `<div class="key"><i style="background:${seg.color}"></i>
-          ${esc(seg.label)}<b>${fmtNum(seg.value)}</b></div>`).join("")}
+        ${segments.map((seg) => `<div class="key" title="${esc(seg.label)}">
+          <i style="background:${seg.color}"></i>
+          <span class="nm">${esc(seg.label)}</span><b>${fmtNum(seg.value)}</b></div>`).join("")}
       </div>
     </div>`;
 }
@@ -337,17 +338,19 @@ function paintDonuts(k, showValue) {
   const cats = (data.by_category || []).slice();
   if (cats.length) {
     const palette = [TONES.brand, TONES.in, TONES.copper, TONES.ok, TONES.warn];
-    const key = showValue ? "value" : "qty";
+    const totalValue = cats.reduce((sum, c) => sum + Number(c.value), 0);
+    const byValue = showValue && totalValue > 0;
+    const key = byValue ? "value" : "qty";
     const sorted = cats.sort((a, b) => Number(b[key]) - Number(a[key]));
     const top = sorted.slice(0, 4).map((c, i) => ({
-      label: c.category.length > 16 ? c.category.slice(0, 15) + "…" : c.category,
+      label: c.category,
       value: Math.round(Number(c[key])), color: palette[i],
     }));
     const rest = sorted.slice(4).reduce((sum, c) => sum + Number(c[key]), 0);
     if (rest > 0) top.push({ label: "باقي الفئات", value: Math.round(rest), color: TONES.mute });
 
     parts.push(donut({
-      title: showValue ? "القيمة حسب الفئة" : "الكميات حسب الفئة",
+      title: byValue ? "القيمة حسب الفئة" : "الكميات حسب الفئة",
       big: fmtNum(sorted.length), cap: "فئة",
       segments: top,
     }));
