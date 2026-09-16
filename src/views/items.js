@@ -48,9 +48,20 @@ export function init() {
   on("items", () => { if (byId("view-items").classList.contains("active")) paint(); });
 }
 
-export function render() {
+export function render(params = {}) {
   init();
   fillCategoryFilter();
+  // مرشّحات قادمة من لوحة القيادة (مثل: أصناف تحت الحد الأدنى)
+  if (params.stock !== undefined || params.category !== undefined || params.q !== undefined) {
+    filters = {
+      search: (params.q || "").toLowerCase(),
+      category: params.category || "",
+      stock: params.stock || "",
+    };
+    byId("itemSearch").value = params.q || "";
+    byId("itemCategoryFilter").value = filters.category;
+    byId("itemStockFilter").value = filters.stock;
+  }
   paint();
 }
 
