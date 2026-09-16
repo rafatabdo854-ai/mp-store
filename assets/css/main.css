@@ -353,3 +353,55 @@ tr.click:hover { background: var(--brand-tint); }
 @media (min-width: 900px) { .dash-cols { grid-template-columns: 1fr 1fr; } }
 
 [hidden] { display: none !important; }
+
+/* ---------- بطاقات المؤشرات ---------- */
+.kpi {
+  display: grid; gap: 10px; margin-bottom: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 620px)  { .kpi { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1080px) { .kpi { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
+.kpi .k {
+  --tone: var(--brand);
+  position: relative; overflow: hidden;
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  padding: 13px 14px 12px; min-height: 108px;
+  display: flex; flex-direction: column; justify-content: flex-start; gap: 3px;
+  font: inherit; text-align: start; color: inherit;
+}
+.kpi .k::before {
+  content: ""; position: absolute; inset-block: 0; inset-inline-start: 0;
+  width: 3px; background: var(--tone);
+}
+.kpi .k::after {
+  content: ""; position: absolute; inset-block-start: -30px; inset-inline-start: -30px;
+  width: 78px; height: 78px; border-radius: 50%; background: var(--tone); opacity: .06;
+}
+
+.kpi .k-label {
+  font-size: .76rem; color: var(--text-mute); line-height: 1.35;
+  display: block; min-height: 2.1em;
+}
+.kpi .k-value {
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: clamp(1.35rem, 6vw, 1.7rem); font-weight: 600; line-height: 1.1;
+  color: var(--tone); letter-spacing: -0.02em;
+}
+.kpi .k-value.money { font-size: clamp(.92rem, 3.6vw, 1.1rem); }
+.kpi .k-sub {
+  margin-top: auto; padding-top: 6px;
+  font-size: .71rem; color: var(--text-mute); line-height: 1.35;
+}
+
+.kpi .t-brand  { --tone: var(--brand); }
+.kpi .t-in     { --tone: var(--in); }
+.kpi .t-out    { --tone: var(--out); }
+.kpi .t-warn   { --tone: var(--warn); }
+.kpi .t-copper { --tone: var(--copper); }
+
+.kpi button.k { cursor: pointer; transition: transform .1s ease, box-shadow .1s ease, border-color .1s ease; }
+.kpi button.k:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--tone); }
+.kpi button.k:active { transform: translateY(0); }
+.kpi button.k::after { transition: opacity .15s ease; }
+.kpi button.k:hover::after { opacity: .12; }
