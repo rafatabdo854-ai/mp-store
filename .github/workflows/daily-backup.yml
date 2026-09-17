@@ -1,0 +1,65 @@
+name: نسخة احتياطية يومية
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: جلب الكود
+        uses: actions/checkout@v4
+
+      - name: تصدير الجداول
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 tools/backup.py
+
+      - name: تجهيز نص الرسالة
+        id: report
+        run: |
+          echo "subject=$(cat backup/subject.txt)" >> "$GITHUB_OUTPUT"
+          echo "zip=$(cat backup/zipname.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: إرسال النسخة بالبريد
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          from: نسخة المخزن الاحتياطية
+          to: ${{ secrets.MAIL_TO }}
+          subject: ${{ steps.report.outputs.subject }}
+          body: file://backup/report.txt
+          attachments: ${{ steps.report.outputs.zip }}
+
+      - name: تنبيه عند الفشل
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          from: نسخة المخزن الاحتياطية
+          to: ${{ secrets.MAIL_TO }}
+          subject: "⚠️ فشلت النسخة الاحتياطية اليومية للمخزن"
+          body: |
+            لم تكتمل مهمة النسخ الاحتياطي اليوم.
+
+            راجع التفاصيل من تبويب Actions:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            الأسباب الشائعة: مفتاح service_role تغيّر، أو مشروع Supabase
+            دخل في سبات، أو كلمة مرور التطبيق في جيميل أُلغيت.
