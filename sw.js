@@ -9,7 +9,7 @@
  * عند تعديل أي ملف في src/ أو assets/: ارفع رقم CACHE_VERSION — وإلا بقي
  * المستخدمون على النسخة القديمة حتى تنتهي صلاحية الملف في المتصفح.
  */
-const CACHE_VERSION = "v10.3.0";
+const CACHE_VERSION = "v10.4.0";
 const SHELL_CACHE = `mpstore-shell-${CACHE_VERSION}`;
 const CDN_CACHE   = `mpstore-cdn-${CACHE_VERSION}`;
 
@@ -52,6 +52,7 @@ const SHELL = [
   "./src/views/pricing.js",
   "./src/views/print.js",
   "./src/views/reports.js",
+  "./src/views/roles.js",
   "./src/views/settings.js",
   "./src/views/shared.js",
   "./src/views/stocktake.js",
