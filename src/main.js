@@ -6,6 +6,7 @@ import { initClient, isConfigured } from "./data/client.js";
 import { items as itemsRepo, lists, settings as settingsRepo } from "./data/repo.js";
 import { startRealtime, watchNetwork, onTxnChange } from "./data/realtime.js";
 import { restoreSession, signOut, currentUser } from "./auth/auth.js";
+import { startSessionGuard, stopSessionGuard } from "./auth/session-guard.js";
 import { mountLogin } from "./auth/login.js";
 import { can, roleLabel } from "./auth/roles.js";
 import { APP } from "./config.js";
@@ -112,6 +113,10 @@ async function boot(profile) {
   onTxnChange(() => { if (currentView() === "dashboard") refreshSummary(); });
   on("items", saveCache);
 
+  // إنهاء الجلسة تلقائيًا عند الخمول (٣٠ دقيقة) أو تجاوز سقف الجلسة (١٢ ساعة)،
+  // وإعادة التحميل إلى شاشة الدخول بدل ترك واجهة معطوبة بلا جلسة صالحة.
+  startSessionGuard(() => location.reload());
+
   routeFromHash();
   window.addEventListener("hashchange", routeFromHash);
 }
@@ -168,6 +173,7 @@ function wireChrome() {
   byId("btnLogout").addEventListener("click", async () => {
     const ok = await confirmDialog({ title: "تسجيل الخروج", message: "هل تريد إنهاء الجلسة الآن؟" });
     if (!ok) return;
+    stopSessionGuard();
     await signOut();
     location.reload();
   });
