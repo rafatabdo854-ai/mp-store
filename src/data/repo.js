@@ -177,8 +177,58 @@ export const settings = {
   },
 };
 
+/* ------------------------- سجل التدقيق ------------------------- */
 export const audit = {
-  list(limit = 200) {
-    return run(db().from("audit_log").select("*").order("at", { ascending: false }).limit(limit));
+  /** سجل التعديلات — من فعل ماذا ومتى. الترشيح والترقيم على الخادم. */
+  async list({ action = "", entity = "", actor = "", from = "", to = "",
+               search = "", page = 0, size = 100 } = {}) {
+    let q = db().from("audit_log")
+      .select("*", { count: "exact" })
+      .order("at", { ascending: false })
+      .range(page * size, page * size + size - 1);
+
+    if (action) q = q.eq("action", action);
+    if (entity) q = q.eq("entity", entity);
+    if (actor)  q = q.eq("actor", actor);
+    if (from)   q = q.gte("at", `${from}T00:00:00`);
+    if (to)     q = q.lte("at", `${to}T23:59:59`);
+    if (search) q = q.or(`entity_id.ilike.%${search}%,actor_name.ilike.%${search}%`);
+
+    const { data, error, count } = await q;
+    if (error) throw error;
+    return { rows: data || [], count: count || 0 };
+  },
+
+  /** سجل الدخول — ناجح وفاشل. القراءة للمدير فقط (تفرضها سياسة RLS). */
+  async authEvents({ event = "", username = "", from = "", to = "",
+                     page = 0, size = 100 } = {}) {
+    let q = db().from("auth_events")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(page * size, page * size + size - 1);
+
+    if (event)    q = q.eq("event", event);
+    if (username) q = q.ilike("username", `%${username}%`);
+    if (from)     q = q.gte("created_at", `${from}T00:00:00`);
+    if (to)       q = q.lte("created_at", `${to}T23:59:59`);
+
+    const { data, error, count } = await q;
+    if (error) throw error;
+    return { rows: data || [], count: count || 0 };
+  },
+
+  /** الحسابات المقفولة حاليًا بسبب محاولات فاشلة متكررة. */
+  locked() {
+    return run(db().from("profiles")
+      .select("id,username,full_name,failed_attempts,locked_until")
+      .not("locked_until", "is", null)
+      .gt("locked_until", new Date().toISOString()));
+  },
+
+  /** فكّ القفل يدويًا — المدير فقط (تفرضه سياسة الكتابة على profiles). */
+  unlock(id) {
+    return run(db().from("profiles")
+      .update({ failed_attempts: 0, locked_until: null })
+      .eq("id", id).select().single());
   },
 };
