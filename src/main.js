@@ -3,12 +3,12 @@ import { byId, $$ } from "./core/dom.js";
 import { set, get, on, saveCache, loadCache } from "./core/store.js";
 import { toast, toastError, toastWarn, setConnection, confirmDialog } from "./core/ui.js";
 import { initClient, isConfigured } from "./data/client.js";
-import { items as itemsRepo, lists, settings as settingsRepo } from "./data/repo.js";
+import { items as itemsRepo, lists, settings as settingsRepo, rbac } from "./data/repo.js";
 import { startRealtime, watchNetwork, onTxnChange } from "./data/realtime.js";
 import { restoreSession, signOut, currentUser } from "./auth/auth.js";
 import { startSessionGuard, stopSessionGuard, isSessionStale, markExpiry, takeExpiryReason } from "./auth/session-guard.js";
 import { mountLogin } from "./auth/login.js";
-import { can, roleLabel } from "./auth/roles.js";
+import { can, roleLabel, applyPermissions, applyRoles } from "./auth/roles.js";
 import { APP } from "./config.js";
 
 import * as dashboard from "./views/dashboard.js";
@@ -21,6 +21,7 @@ import * as stocktakeView from "./views/stocktake.js";
 import * as settingsView from "./views/settings.js";
 import * as accountingView from "./views/accounting.js";
 import * as auditView from "./views/audit.js";
+import * as rolesView from "./views/roles.js";
 import { refreshSummary } from "./views/shared.js";
 
 const voucherIn  = makeVoucherView("in");
@@ -30,7 +31,8 @@ const voucherOut = makeVoucherView("out");
 const TITLES = {
   dashboard: "لوحة القيادة", items: "الأصناف", voucherIn: "إذن وارد", voucherOut: "إذن صرف",
   log: "سجل الحركات", reports: "التقارير", pricing: "التسعير", accounting: "المحاسبة",
-  stocktake: "الجرد", audit: "سجل التدقيق", settings: "الإعدادات",
+  stocktake: "الجرد", audit: "سجل التدقيق", roles: "الأدوار والصلاحيات",
+  settings: "الإعدادات",
 };
 
 const closeNav = () => document.body.classList.remove("nav-open");
@@ -46,6 +48,7 @@ const VIEWS = {
   accounting: { render: accountingView.render, permission: "accounting" },
   stocktake:  { render: stocktakeView.render, permission: "stocktake" },
   audit:      { render: auditView.render,     permission: "view_audit" },
+  roles:      { render: rolesView.render,     permission: "manage_users" },
   settings:   { render: settingsView.render,  permission: null },
 };
 
@@ -106,7 +109,18 @@ async function boot(profile) {
   byId("userRole").textContent = roleLabel(profile.role);
   byId("appVersion").textContent = `الإصدار ${APP.version}`;
 
-  applyPermissions();
+  // الصلاحيات أولًا: القائمة الجانبية تُبنى على أساسها، وتأخيرها يعني
+  // إخفاء أزرار يملكها المستخدم فعلًا حتى أول تحديث للصفحة.
+  try {
+    const [perms, roleRows] = await Promise.all([rbac.myPermissions(), rbac.roles()]);
+    applyPermissions(perms);
+    applyRoles(roleRows);
+  } catch (err) {
+    // 09_permissions.sql لم يُشغَّل أو الشبكة منقطعة — المصفوفة الاحتياطية تتولّى
+    console.warn("تعذّر تحميل الصلاحيات:", err.message);
+  }
+
+  applyNavPermissions();
   wireChrome();
 
   // عرض فوري من النسخة المحلية ثم تحديثها من الخادم
@@ -174,7 +188,7 @@ function routeFromHash() {
   try { VIEWS[view].render(params); } catch (err) { console.error(err); toastError("تعذّر عرض الشاشة"); }
 }
 
-function applyPermissions() {
+function applyNavPermissions() {
   $$("[data-view]").forEach((btn) => {
     const perm = VIEWS[btn.dataset.view]?.permission;
     btn.hidden = Boolean(perm && !can(perm));
