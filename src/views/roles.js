@@ -15,12 +15,14 @@ import { rbac, users } from "../data/repo.js";
 import { can, applyPermissions, applyRoles, roleLabel } from "../auth/roles.js";
 import { toast, toastError, confirmDialog, openModal } from "../core/ui.js";
 import { currentUser } from "../auth/auth.js";
+import { onPresence, onlineUsers } from "../core/presence.js";
 
 let built = false;
 let roles = [];
 let perms = [];
 let granted = new Set();     // "role_code|permission_code"
 let usage = {};
+let stopWatch = null;
 
 const key = (r, p) => `${r}|${p}`;
 
@@ -50,10 +52,14 @@ function build() {
     <div class="panel">
       <div class="panel-head">
         <h2 style="border:0;margin:0;padding:0;background:none">تعيين الأدوار للمستخدمين</h2>
+        <span class="spacer"></span>
+        ${can("view_presence") ? `<span class="pill" id="rbOnlineCount">—</span>` : ""}
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>المستخدم</th><th>الدور</th><th class="center">الحالة</th></tr></thead>
+          <thead><tr><th>المستخدم</th><th>الدور</th>
+            <th class="center">الحالة</th>
+            ${can("view_presence") ? `<th class="center">الحضور</th>` : ""}</tr></thead>
           <tbody id="rbUsers"></tbody>
         </table>
       </div>
@@ -64,6 +70,9 @@ function build() {
   // تفويض الأحداث: مستمع واحد للمصفوفة كلها بدل مستمع لكل مربع
   onClick(byId("rbMatrix"), "[data-cell]", toggleCell);
   onClick(byId("rbMatrix"), "[data-role-menu]", roleMenu);
+
+  // إعادة رسم عمود الحضور وحده كلما دخل أحد أو خرج
+  stopWatch = onPresence(() => { if (built) paintPresence(); });
 
   byId("rbUsers").addEventListener("change", async (e) => {
     const sel = e.target.closest("[data-user-role]");
@@ -284,6 +293,8 @@ async function paintUsers() {
   }
 
   const me = currentUser()?.id;
+  lastSeenMap.clear();
+  rows.forEach((u) => lastSeenMap.set(u.id, u.last_seen));
 
   byId("rbUsers").innerHTML = rows.map((u) => `
     <tr>
@@ -301,5 +312,49 @@ async function paintUsers() {
       <td class="center">
         <span class="pill ${u.is_active ? "in" : "out"}">${u.is_active ? "نشط" : "موقوف"}</span>
       </td>
+      ${can("view_presence") ? `
+      <td class="center" data-presence="${esc(u.id)}">
+        <span class="hint">${lastSeenText(u.last_seen)}</span>
+      </td>` : ""}
     </tr>`).join("");
+
+  paintPresence();
+}
+
+// "متصل الآن" تأتي من Presence لا من قاعدة البيانات: تختفي لحظة إغلاق
+// التبويب، فلا تُظهر أحدًا متصلًا وهو ليس كذلك.
+function paintPresence() {
+  const live = new Map(onlineUsers().map((u) => [u.id, u]));
+
+  document.querySelectorAll("#rbUsers [data-presence]").forEach((cell) => {
+    const here = live.get(cell.dataset.presence);
+    if (here) {
+      cell.innerHTML = `<span class="pill in">● متصل الآن</span>` +
+        (here.tabs > 1 ? `<div class="hint">${fmtNum(here.tabs)} نوافذ</div>` : "");
+    } else {
+      const row = lastSeenMap.get(cell.dataset.presence);
+      cell.innerHTML = `<span class="hint">${lastSeenText(row)}</span>`;
+    }
+  });
+
+  const count = live.size;
+  const label = byId("rbOnlineCount");
+  if (label) {
+    label.textContent = count ? `${fmtNum(count)} متصل الآن` : "لا أحد متصل";
+  }
+}
+
+const lastSeenMap = new Map();
+
+// "منذ ٣ دقائق" أوضح من طابع زمني كامل حين يكون السؤال: هل هو هنا؟
+function lastSeenText(value) {
+  if (!value) return "لم يدخل بعد";
+  const mins = Math.floor((Date.now() - new Date(value).getTime()) / 60000);
+  if (mins < 1) return "الآن";
+  if (mins < 60) return `منذ ${fmtNum(mins)} دقيقة`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `منذ ${fmtNum(hours)} ساعة`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `منذ ${fmtNum(days)} يوم`;
+  return new Date(value).toLocaleDateString("ar-EG");
 }
