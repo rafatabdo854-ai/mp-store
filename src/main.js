@@ -185,7 +185,13 @@ function routeFromHash() {
   closeNav();
   $$(".view").forEach((s) => s.classList.toggle("active", s.id === `view-${view}`));
   window.scrollTo({ top: 0 });
-  try { VIEWS[view].render(params); } catch (err) { console.error(err); toastError("تعذّر عرض الشاشة"); }
+  // render() لبعض الشاشات (roles، audit) دالة async: لو رمت خطأً بعد أول
+  // await فلن يمسكه try/catch عاديّ لأن الدالة تُرجع Promise فورًا، فيختفي
+  // الخطأ بصمت وتبقى الشاشة فارغة وكأن الزر "لا يردّ". Promise.resolve(...)
+  // يضمن أننا نتعامل معها كوعد دائمًا، سواء كانت sync أو async.
+  Promise.resolve()
+    .then(() => VIEWS[view].render(params))
+    .catch((err) => { console.error(err); toastError("تعذّر عرض الشاشة: " + err.message); });
 }
 
 function applyNavPermissions() {
