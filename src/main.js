@@ -1,12 +1,12 @@
 /** نقطة البداية: تشغيل التطبيق، تحميل البيانات، والتنقّل بين الشاشات. */
 import { byId, $$ } from "./core/dom.js";
 import { set, get, on, saveCache, loadCache } from "./core/store.js";
-import { toast, toastError, setConnection, confirmDialog } from "./core/ui.js";
+import { toast, toastError, toastWarn, setConnection, confirmDialog } from "./core/ui.js";
 import { initClient, isConfigured } from "./data/client.js";
 import { items as itemsRepo, lists, settings as settingsRepo } from "./data/repo.js";
 import { startRealtime, watchNetwork, onTxnChange } from "./data/realtime.js";
 import { restoreSession, signOut, currentUser } from "./auth/auth.js";
-import { startSessionGuard, stopSessionGuard } from "./auth/session-guard.js";
+import { startSessionGuard, stopSessionGuard, isSessionStale, markExpiry, takeExpiryReason } from "./auth/session-guard.js";
 import { mountLogin } from "./auth/login.js";
 import { can, roleLabel } from "./auth/roles.js";
 import { APP } from "./config.js";
@@ -66,10 +66,27 @@ async function start() {
   try { initClient(); } catch (err) { console.error(err); }
   mountLogin(boot);
 
+  // سبب آخر خروج تلقائي — يُعرض مرة واحدة حتى لا يتساءل المستخدم لماذا خرج
+  const expiryNote = takeExpiryReason();
+  if (expiryNote) toastWarn(expiryNote);
+
   if (!isConfigured()) return;
 
   try {
     const profile = await withTimeout(restoreSession(), 9000, "لم يستجب الخادم خلال ٩ ثوانٍ");
+
+    // جلسة محفوظة لكن مدة الخمول أو سقف الجلسة انتهيا أثناء إغلاق المتصفح:
+    // لا تُستعاد، وإلا صار إغلاق المتصفح وفتحه وسيلة لتجاوز حد الخمول.
+    const stale = profile && isSessionStale();
+    if (stale) {
+      markExpiry(stale);
+      await signOut();
+      stopSessionGuard({ broadcast: false });
+      toastWarn(stale === "max" ? "انتهت مدة الجلسة القصوى. سجّل الدخول من جديد."
+                                : "انتهت الجلسة تلقائيًا بسبب عدم النشاط.");
+      return;
+    }
+
     if (profile) {
       byId("loginScene").hidden = true;
       document.body.classList.remove("is-locked");
