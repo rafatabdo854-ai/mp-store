@@ -3,122 +3,429 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>فحص ملفات النظام</title>
+<title>فحص النظام</title>
 <style>
-  body { font-family: "Segoe UI", system-ui, sans-serif; background:#0E1D24; color:#E6EEF1;
+  body { font-family:"Segoe UI", system-ui, sans-serif; background:#0E1D24; color:#E6EEF1;
          padding:18px; margin:0; line-height:1.7; }
   h1 { font-size:1.05rem; margin:0 0 4px; }
-  .sub { font-size:.8rem; color:#8FAEB8; margin-bottom:16px; }
-  .row { display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:7px;
-         font-family: ui-monospace, monospace; font-size:.78rem; direction:ltr; text-align:left; }
+  h2 { font-size:.82rem; margin:20px 0 7px; color:#8FAEB8; font-weight:600; }
+  .sub { font-size:.8rem; color:#8FAEB8; margin-bottom:8px; }
+  .row { display:flex; align-items:flex-start; gap:10px; padding:6px 10px; border-radius:7px;
+         font-family:ui-monospace, monospace; font-size:.75rem; direction:ltr; text-align:left;
+         margin-bottom:2px; }
   .ok   { background:rgba(45,160,110,.12); color:#7FD8AC; }
   .bad  { background:rgba(228,105,94,.15); color:#FFB3AC; font-weight:600; }
+  .warn { background:rgba(230,175,60,.14); color:#F0CE86; }
   .wait { background:rgba(255,255,255,.05); color:#9FB8C0; }
-  .tag { flex:none; width:44px; }
-  #summary { margin-top:18px; padding:14px; border-radius:10px; font-size:.9rem;
+  .tag  { flex:none; width:58px; }
+  .note { color:#B9CDD4; font-weight:400; }
+  #summary { margin-top:20px; padding:14px; border-radius:10px; font-size:.88rem;
              background:rgba(255,255,255,.06); }
   #summary.good { background:rgba(45,160,110,.16); }
   #summary.fail { background:rgba(228,105,94,.16); }
-  code { background:rgba(0,0,0,.35); padding:1px 5px; border-radius:4px; }
+  #summary.warn { background:rgba(230,175,60,.16); }
+  code { background:rgba(0,0,0,.35); padding:1px 5px; border-radius:4px; font-size:.78rem; }
   button { font:inherit; padding:9px 16px; border:0; border-radius:8px; background:#0F6E8C;
-           color:#fff; cursor:pointer; margin-top:14px; }
+           color:#fff; cursor:pointer; margin:14px 6px 0 0; }
+  button.ghost { background:rgba(255,255,255,.1); }
 </style>
 </head>
 <body>
 
-<h1>فحص ملفات نظام المخزن</h1>
-<div class="sub">يتحقق من وجود كل ملف يحتاجه النظام، ومن الوصول إلى مكتبة Supabase.</div>
+<h1>فحص نظام المخزن</h1>
+<div class="sub">
+  أربع طبقات: وجود الملفات، سلامة محتواها، إعداد التطبيق المثبَّت،
+  وأي ملفات SQL شُغِّلت فعلًا على قاعدة البيانات.
+</div>
 
-<div id="list"></div>
+<div id="out"></div>
 <div id="summary">جارٍ الفحص...</div>
 <button onclick="location.reload()">إعادة الفحص</button>
+<button class="ghost" onclick="clearCaches()">مسح ذاكرة التطبيق</button>
 
 <script>
-// المسارات نسبية إلى جذر المشروع (هذا الملف داخل tools/)
-var FILES = [
-  "index.html",
-  "assets/css/main.css",
-  "assets/css/login.css",
-  "assets/css/print.css",
-  "src/config.js",
-  "src/main.js",
-  "src/core/dom.js",
-  "src/core/format.js",
-  "src/core/validation.js",
-  "src/core/ui.js",
-  "src/core/store.js",
-  "src/data/client.js",
-  "src/data/repo.js",
-  "src/data/realtime.js",
-  "src/data/excel.js",
-  "src/auth/roles.js",
-  "src/auth/auth.js",
-  "src/auth/login.js",
-  "src/views/shared.js",
-  "src/views/print.js",
-  "src/views/dashboard.js",
-  "src/views/items.js",
-  "src/views/voucher.js",
-  "src/views/log.js",
-  "src/views/reports.js",
-  "src/views/pricing.js",
-  "src/views/accounting.js",
-  "src/views/stocktake.js",
-  "src/views/settings.js"
+// ============================================================
+//  ملفات المشروع — أي ملف جديد يُسجَّل هنا
+// ============================================================
+var GROUPS = [
+  { name: "الجذر", files: ["index.html", "manifest.webmanifest", "sw.js"] },
+
+  { name: "الأنماط", files: [
+    "assets/css/main.css", "assets/css/login.css", "assets/css/print.css"] },
+
+  { name: "الأيقونات", files: [
+    "assets/img/logo.png", "assets/img/icon-192.png", "assets/img/icon-512.png",
+    "assets/img/icon-maskable-192.png", "assets/img/icon-maskable-512.png"] },
+
+  { name: "النواة", files: [
+    "src/config.js", "src/main.js",
+    "src/core/dom.js", "src/core/format.js", "src/core/validation.js",
+    "src/core/ui.js", "src/core/store.js",
+    "src/core/presence.js", "src/core/updates.js"] },
+
+  { name: "البيانات", files: [
+    "src/data/client.js", "src/data/repo.js", "src/data/realtime.js", "src/data/excel.js"] },
+
+  { name: "الدخول والصلاحيات", files: [
+    "src/auth/roles.js", "src/auth/auth.js", "src/auth/login.js",
+    "src/auth/session-guard.js"] },
+
+  { name: "الشاشات", files: [
+    "src/views/shared.js", "src/views/print.js", "src/views/dashboard.js",
+    "src/views/items.js", "src/views/voucher.js", "src/views/log.js",
+    "src/views/reports.js", "src/views/pricing.js", "src/views/accounting.js",
+    "src/views/stocktake.js", "src/views/settings.js",
+    "src/views/audit.js", "src/views/roles.js"] },
+
+  { name: "ملفات SQL في المستودع", optional: true, files: [
+    "sql/01_schema.sql", "sql/02_functions.sql", "sql/03_security.sql", "sql/04_seed.sql",
+    "sql/05_accounting.sql", "sql/06_login_guard.sql", "sql/09_permissions.sql",
+    "sql/10_presence.sql", "sql/11_permission_cleanup.sql"] },
+
+  { name: "أدوات", optional: true, files: [
+    "tools/backup.py", ".github/workflows/daily-backup.yml"] },
 ];
+
+// دوال قاعدة البيانات ومصدر كل واحدة
+var RPCS = [
+  { name: "create_voucher",        from: "02_functions.sql" },
+  { name: "dashboard_summary",     from: "02_functions.sql" },
+  { name: "recalc_balances",       from: "02_functions.sql" },
+  { name: "valuation_report",      from: "05_accounting.sql" },
+  { name: "purchase_vouchers",     from: "05_accounting.sql" },
+  { name: "dashboard_insights",    from: "05_accounting.sql" },
+  { name: "recalc_avg_cost",       from: "05_accounting.sql" },
+  { name: "is_locked",             from: "06_login_guard.sql" },
+  { name: "register_failed_login", from: "06_login_guard.sql" },
+  { name: "my_permissions",        from: "09_permissions.sql" },
+  { name: "admin_capable_count",   from: "09_permissions.sql" },
+  { name: "touch_last_seen",       from: "10_presence.sql" },
+  { name: "active_users",          from: "10_presence.sql" }
+];
+
+var TABLES = [
+  { name: "items",            from: "01_schema.sql" },
+  { name: "transactions",     from: "01_schema.sql" },
+  { name: "profiles",         from: "01_schema.sql" },
+  { name: "voucher_review",   from: "05_accounting.sql" },
+  { name: "auth_events",      from: "06_login_guard.sql" },
+  { name: "roles",            from: "09_permissions.sql" },
+  { name: "permissions",      from: "09_permissions.sql" },
+  { name: "role_permissions", from: "09_permissions.sql" }
+];
+
+var EXPECTED_PERMS = ["manage_items", "edit_price", "view_pricing", "create_voucher",
+  "delete_voucher", "stocktake", "accounting", "view_audit", "manage_users",
+  "view_presence", "view_auth_log", "review_voucher", "delete_item",
+  "delete_stocktake", "import_data", "manage_settings"];
 
 var CDN = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
 var base = location.href.replace(/\/tools\/[^/]*$/, "/");
-var list = document.getElementById("list");
-var missing = [];
-var done = 0;
+var out = document.getElementById("out");
 
-function add(label, cls, note) {
+var problems = [];
+var warnings = [];
+var sources = {};
+
+function section(title) {
+  var h = document.createElement("h2");
+  h.textContent = title;
+  out.appendChild(h);
+}
+
+function add(label, cls, tag, note) {
   var d = document.createElement("div");
   d.className = "row " + cls;
-  d.innerHTML = '<span class="tag">' + (cls === "ok" ? "OK" : cls === "bad" ? "MISSING" : "...") +
-                "</span><span>" + label + (note ? "  — " + note : "") + "</span>";
-  list.appendChild(d);
+  d.innerHTML = '<span class="tag">' + (tag || "...") + '</span><span class="lbl">' +
+                label + (note ? ' <span class="note">- ' + note + '</span>' : '') + '</span>';
+  out.appendChild(d);
   return d;
 }
 
-function finish() {
-  var box = document.getElementById("summary");
-  if (missing.length === 0) {
-    box.className = "good";
-    box.innerHTML = "<b>كل الملفات موجودة.</b><br>لو النظام لسه لا يعمل، المشكلة في الوصول لمكتبة Supabase — راجع آخر سطر في القائمة.";
-  } else {
-    box.className = "fail";
-    box.innerHTML = "<b>" + missing.length + " ملف مفقود أو اسمه مختلف:</b><br>" +
-      missing.map(function (m) { return "<code>" + m + "</code>"; }).join("<br>") +
-      "<br><br>ارفع هذه الملفات في مساراتها بالضبط. الأسماء حسّاسة لحالة الأحرف.";
+function mark(row, cls, tag, note) {
+  row.className = "row " + cls;
+  row.querySelector(".tag").textContent = tag;
+  if (note) {
+    var lbl = row.querySelector(".lbl");
+    lbl.innerHTML = lbl.innerHTML.split(' <span class="note">')[0] +
+                    ' <span class="note">- ' + note + '</span>';
   }
 }
 
-FILES.forEach(function (path) {
-  var row = add(path, "wait");
-  fetch(base + path, { method: "GET", cache: "no-store" })
-    .then(function (res) {
-      if (res.ok) { row.className = "row ok"; row.querySelector(".tag").textContent = "OK"; }
-      else { row.className = "row bad"; row.querySelector(".tag").textContent = res.status; missing.push(path); }
-    })
-    .catch(function () {
-      row.className = "row bad"; row.querySelector(".tag").textContent = "ERR"; missing.push(path);
-    })
-    .finally(function () { if (++done === FILES.length) finish(); });
-});
+// ============================================================
+//  سلامة المحتوى — يكشف الملفات المقصوصة أثناء النسخ واللصق
+//
+//  الرفع بالنسخ من الهاتف يقصّ النص أحيانًا. الملف يصل موجودًا
+//  وحجمه غير صفري لكنه لا يعمل، وفحص الوجود وحده لا يكشف ذلك.
+// ============================================================
+function inspect(path, text) {
+  if (!/\.(js|html|css)$/.test(path)) return null;
+  if (text.trim().length < 40) return "الملف شبه فارغ";
 
-var cdnRow = add("cdn.jsdelivr.net (مكتبة Supabase)", "wait");
-fetch(CDN, { cache: "no-store" })
-  .then(function (res) {
-    if (res.ok) { cdnRow.className = "row ok"; cdnRow.querySelector(".tag").textContent = "OK"; }
-    else { cdnRow.className = "row bad"; cdnRow.querySelector(".tag").textContent = res.status; }
-  })
-  .catch(function () {
-    cdnRow.className = "row bad";
-    cdnRow.querySelector(".tag").textContent = "BLOCK";
-    cdnRow.querySelector("span:last-child").textContent =
-      "cdn.jsdelivr.net محجوب على هذه الشبكة — المكتبة لن تُحمَّل والنظام لن يعمل";
+  // تعليق /* فقد حرف / في أوله - الخطأ الذي عطّل session-guard سابقًا
+  if (/^\s*\*\*/.test(text)) return "يبدأ بـ ** - تعليق مكسور، أعد رفعه";
+
+  if (path.slice(-3) === ".js") {
+    var open = (text.match(/\{/g) || []).length;
+    var close = (text.match(/\}/g) || []).length;
+    if (open !== close) return "أقواس غير متوازنة (" + open + "/" + close + ") - مقصوص";
+    var b1 = (text.match(/\/\*/g) || []).length;
+    var b2 = (text.match(/\*\//g) || []).length;
+    if (b1 !== b2) return "تعليق /* لم يُغلق - مقصوص";
+  }
+
+  if (path === "index.html" && text.indexOf("</html>") === -1) {
+    return "لا ينتهي بـ </html> - مقصوص";
+  }
+  return null;
+}
+
+// ============================================================
+//  1) الملفات
+// ============================================================
+function checkFiles() {
+  var jobs = [];
+
+  GROUPS.forEach(function (group) {
+    section(group.name);
+    group.files.forEach(function (path) {
+      var row = add(path, "wait");
+      jobs.push(
+        fetch(base + path, { cache: "no-store" })
+          .then(function (res) {
+            if (!res.ok) {
+              mark(row, "bad", String(res.status));
+              (group.optional ? warnings : problems).push(path + " (" + res.status + ")");
+              return;
+            }
+            if (/\.(png|py|yml)$/.test(path)) { mark(row, "ok", "OK"); return; }
+            return res.text().then(function (text) {
+              sources[path] = text;
+              var issue = inspect(path, text);
+              if (issue) {
+                mark(row, "bad", "TRUNC", issue);
+                problems.push(path + " - " + issue);
+              } else {
+                mark(row, "ok", "OK", Math.round(text.length / 1024) + "KB");
+              }
+            });
+          })
+          .catch(function () {
+            mark(row, "bad", "ERR");
+            (group.optional ? warnings : problems).push(path);
+          })
+      );
+    });
+  });
+
+  return Promise.all(jobs);
+}
+
+// ============================================================
+//  2) الروابط بين الملفات - كل import يشير لملف موجود
+// ============================================================
+function checkImports() {
+  section("الروابط بين الملفات");
+
+  var missing = [];
+  Object.keys(sources).forEach(function (path) {
+    if (path.slice(-3) !== ".js") return;
+    var dir = path.split("/").slice(0, -1).join("/");
+    var re = /from\s+["'](\.[^"']+)["']/g, m;
+    while ((m = re.exec(sources[path]))) {
+      var target = normalize(dir + "/" + m[1]);
+      if (sources[target] === undefined) missing.push(path + " -> " + target);
+    }
+  });
+
+  if (!missing.length) {
+    add("كل الاستيرادات تشير لملفات موجودة", "ok", "OK");
+  } else {
+    missing.forEach(function (x) { add(x, "bad", "MISS"); });
+    problems.push(missing.length + " استيراد يشير لملف مفقود");
+  }
+}
+
+function normalize(p) {
+  var parts = [], segs = p.split("/");
+  for (var i = 0; i < segs.length; i++) {
+    if (segs[i] === "." || segs[i] === "") continue;
+    if (segs[i] === "..") parts.pop();
+    else parts.push(segs[i]);
+  }
+  return parts.join("/");
+}
+
+// ============================================================
+//  3) إعداد التطبيق المثبَّت
+// ============================================================
+function checkPwa() {
+  section("التطبيق المثبَّت");
+
+  var html = sources["index.html"] || "";
+  var sw = sources["sw.js"] || "";
+
+  var hasManifest = html.indexOf("manifest.webmanifest") > -1;
+  add("index.html يستدعي manifest", hasManifest ? "ok" : "bad", hasManifest ? "OK" : "MISS");
+
+  var hasSw = html.indexOf("serviceWorker.register") > -1;
+  add("index.html يسجّل عامل الخدمة", hasSw ? "ok" : "bad", hasSw ? "OK" : "MISS");
+  if (!hasManifest || !hasSw) warnings.push("index.html ينقصه إعداد التطبيق المثبَّت");
+
+  var ver = sw.match(/CACHE_VERSION\s*=\s*"([^"]+)"/);
+  add("نسخة ذاكرة عامل الخدمة", ver ? "ok" : "warn", ver ? "OK" : "?",
+      ver ? ver[1] : "لم تُقرأ");
+
+  // ملف واحد مفقود من قائمة التخزين المسبق يُفشل تثبيت النسخة كلها
+  var listed = (sw.match(/"\.\/[^"]+"/g) || []).map(function (s) { return s.slice(3, -1); });
+  var bad = listed.filter(function (p) {
+    return p && !/\.png$/.test(p) && sources[p] === undefined;
+  });
+  if (listed.length) {
+    add("قائمة التخزين المسبق (" + listed.length + " ملف)", bad.length ? "bad" : "ok",
+        bad.length ? "MISS" : "OK", bad.length ? bad.join(", ") : "");
+    if (bad.length) problems.push("sw.js يشير لملفات غير موجودة: " + bad.join(", "));
+  }
+
+  if ("serviceWorker" in navigator) {
+    return navigator.serviceWorker.getRegistration().then(function (reg) {
+      add("عامل الخدمة مُسجَّل في هذا المتصفح", reg ? "ok" : "warn", reg ? "OK" : "لا",
+          reg ? "" : "افتح الصفحة الرئيسية مرة ليُسجَّل");
+    });
+  }
+  return Promise.resolve();
+}
+
+// ============================================================
+//  4) قاعدة البيانات - ما الذي شُغِّل فعلًا؟
+//
+//  PostgREST يردّ 404 على جدول أو دالة غير موجودة، ويردّ خطأ صلاحية
+//  على الموجود. فغياب 404 دليل على أن ملف SQL شُغِّل.
+// ============================================================
+function checkDatabase() {
+  section("قاعدة البيانات");
+
+  var cfg = sources["src/config.js"] || "";
+  var url = (cfg.match(/https:\/\/[a-z0-9]+\.supabase\.co/) || [])[0];
+  var key = (cfg.match(/eyJ[A-Za-z0-9_\-.]{40,}/) || [])[0];
+
+  if (!url || !key) {
+    add("قراءة إعدادات Supabase من config.js", "bad", "FAIL", "لم يُعثر على الرابط أو المفتاح");
+    problems.push("config.js لا يحتوي على إعدادات Supabase");
+    return Promise.resolve();
+  }
+
+  add("مشروع Supabase", "ok", "OK", url.replace("https://", ""));
+
+  var head = { apikey: key, Authorization: "Bearer " + key };
+  var missingFrom = {};
+  var jobs = [];
+
+  TABLES.forEach(function (t) {
+    var row = add("جدول " + t.name, "wait");
+    jobs.push(fetch(url + "/rest/v1/" + t.name + "?select=*&limit=1", { headers: head })
+      .then(function (res) {
+        if (res.status === 404) { mark(row, "bad", "404", "من " + t.from); missingFrom[t.from] = 1; }
+        else mark(row, "ok", "OK");
+      })
+      .catch(function () { mark(row, "warn", "NET"); }));
+  });
+
+  RPCS.forEach(function (r) {
+    var row = add("دالة " + r.name, "wait");
+    var h2 = { apikey: key, Authorization: "Bearer " + key, "Content-Type": "application/json" };
+    jobs.push(fetch(url + "/rest/v1/rpc/" + r.name, { method: "POST", headers: h2, body: "{}" })
+      .then(function (res) {
+        if (res.status === 404) { mark(row, "bad", "404", "من " + r.from); missingFrom[r.from] = 1; }
+        else mark(row, "ok", "OK");
+      })
+      .catch(function () { mark(row, "warn", "NET"); }));
+  });
+
+  var permRow = add("جدول الصلاحيات مكتمل", "wait");
+  jobs.push(fetch(url + "/rest/v1/permissions?select=code", { headers: head })
+    .then(function (res) { return res.ok ? res.json() : null; })
+    .then(function (rows) {
+      if (!rows) { mark(permRow, "warn", "?", "تعذّرت القراءة"); return; }
+      var have = rows.map(function (r) { return r.code; });
+      var lack = EXPECTED_PERMS.filter(function (c) { return have.indexOf(c) === -1; });
+      if (!lack.length) { mark(permRow, "ok", "OK", have.length + " صلاحية"); }
+      else {
+        mark(permRow, "warn", "نقص", "ناقص: " + lack.join(", "));
+        warnings.push("صلاحيات ناقصة - شغّل 11_permission_cleanup.sql");
+      }
+    })
+    .catch(function () { mark(permRow, "warn", "NET"); }));
+
+  return Promise.all(jobs).then(function () {
+    var files = Object.keys(missingFrom);
+    if (files.length) problems.push("ملفات SQL لم تُشغَّل: " + files.join("، "));
+  });
+}
+
+// ============================================================
+//  5) الشبكة
+// ============================================================
+function checkCdn() {
+  section("الشبكة");
+  var row = add("cdn.jsdelivr.net (مكتبة Supabase)", "wait");
+  return fetch(CDN, { cache: "no-store" })
+    .then(function (res) { mark(row, res.ok ? "ok" : "bad", res.ok ? "OK" : String(res.status)); })
+    .catch(function () {
+      mark(row, "bad", "BLOCK", "محجوب على هذه الشبكة - النظام لن يعمل");
+      problems.push("cdn.jsdelivr.net محجوب");
+    });
+}
+
+// ============================================================
+function finish() {
+  var box = document.getElementById("summary");
+
+  if (!problems.length && !warnings.length) {
+    box.className = "good";
+    box.innerHTML = "<b>كل شيء سليم.</b><br>الملفات كاملة، الروابط صحيحة، وقاعدة البيانات محدّثة.";
+    return;
+  }
+
+  var html = "";
+  if (problems.length) {
+    html += "<b>" + problems.length + " مشكلة تمنع التشغيل:</b><br>" +
+      problems.map(function (p) { return "<code>" + p + "</code>"; }).join("<br>");
+  }
+  if (warnings.length) {
+    html += (html ? "<br><br>" : "") + "<b>" + warnings.length + " ملاحظة لا تمنع التشغيل:</b><br>" +
+      warnings.map(function (w) { return "<code>" + w + "</code>"; }).join("<br>");
+  }
+  html += "<br><br>المسارات حسّاسة لحالة الأحرف. الملفات المقصوصة سببها النسخ واللصق - " +
+          "ارفعها بـ Upload بدلًا منه.";
+
+  box.className = problems.length ? "fail" : "warn";
+  box.innerHTML = html;
+}
+
+function clearCaches() {
+  if (!window.caches) { alert("المتصفح لا يدعم ذاكرة التطبيقات"); return; }
+  caches.keys()
+    .then(function (keys) {
+      return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+    })
+    .then(function () {
+      if (!navigator.serviceWorker) return null;
+      return navigator.serviceWorker.getRegistrations().then(function (regs) {
+        return Promise.all(regs.map(function (r) { return r.unregister(); }));
+      });
+    })
+    .then(function () { alert("مُسحت ذاكرة التطبيق. افتح الصفحة الرئيسية الآن."); });
+}
+
+checkFiles()
+  .then(function () { checkImports(); return checkPwa(); })
+  .then(checkDatabase)
+  .then(checkCdn)
+  .then(finish)
+  .catch(function (err) {
+    problems.push("توقّف الفحص: " + err.message);
+    finish();
   });
 </script>
 </body>
