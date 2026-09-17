@@ -1,0 +1,39 @@
+{
+  "name": "إدارة مخزن مستلزمات الكهرباء",
+  "short_name": "المخزن",
+  "description": "أصناف، أذون وارد وصرف، جرد، تسعير، وتقارير — الهنا الكتريك",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#13303B",
+  "theme_color": "#13303B",
+  "icons": [
+    { "src": "./assets/img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/img/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "./assets/img/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "إذن وارد",
+      "short_name": "وارد",
+      "url": "./index.html#voucherIn",
+      "icons": [{ "src": "./assets/img/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "إذن صرف",
+      "short_name": "صرف",
+      "url": "./index.html#voucherOut",
+      "icons": [{ "src": "./assets/img/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "الأصناف",
+      "short_name": "أصناف",
+      "url": "./index.html#items",
+      "icons": [{ "src": "./assets/img/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
