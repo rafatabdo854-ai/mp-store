@@ -8,8 +8,8 @@
  * ملاحظة أمنية: مفتاح anon مُصمَّم ليكون علنيًا. الحماية الحقيقية
  * مصدرها سياسات RLS في ملفات sql/. لا تضع مفتاح service_role هنا إطلاقًا.
  */
-export const SUPABASE_URL = "";
-export const SUPABASE_ANON_KEY = "";
+export const SUPABASE_URL = "https://zanjzbgnmwruvoliikhi.supabase.co";
+export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inphbmp6YmdubXdydXZvbGlpa2hpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NzI4NDUsImV4cCI6MjEwNTE0ODg0NX0.UyYvDnfiodLZUARh109EY4E16QsNLePlRQ-zP-2m77g";
 
 /** نطاق البريد الوهمي: المستخدم يدخل باسم مستخدم فقط، والنظام يحوّله لبريد. */
 export const LOGIN_DOMAIN = "mp-store.local";
