@@ -10,7 +10,7 @@
 import { byId, esc, fillTable, debounce, onClick } from "../core/dom.js";
 import { fmtDateTime, fmtNum } from "../core/format.js";
 import { audit, users } from "../data/repo.js";
-import { can, role } from "../auth/roles.js";
+import { can } from "../auth/roles.js";
 import { toast, toastError, openModal, confirmDialog } from "../core/ui.js";
 import { exportRows } from "../data/excel.js";
 
@@ -47,7 +47,8 @@ let changes = { action: "", entity: "", actor: "", from: "", to: "", search: "",
 let logins  = { event: "", username: "", from: "", to: "",
                 page: 0, count: 0, rows: [] };
 
-const isAdmin = () => role() === "admin";
+// لسان الدخول يتبع صلاحية لا اسم دور، فيستطيع المدير منحه لغيره
+const canSeeLogins = () => can("view_auth_log");
 
 function build() {
   byId("view-audit").innerHTML = `
@@ -60,8 +61,8 @@ function build() {
 
       <div class="toolbar">
         <button class="btn ghost small active" data-tab="changes">التعديلات</button>
-        ${isAdmin() ? `<button class="btn ghost small" data-tab="logins">الدخول</button>` : ""}
-        ${isAdmin() ? `<span class="spacer"></span>
+        ${canSeeLogins() ? `<button class="btn ghost small" data-tab="logins">الدخول</button>` : ""}
+        ${canSeeLogins() ? `<span class="spacer"></span>
           <button class="btn ghost small" id="auLocked">الحسابات المقفولة</button>` : ""}
       </div>
 
@@ -150,7 +151,7 @@ function build() {
   });
 
   /* ---------- مرشّحات الدخول ---------- */
-  if (isAdmin()) {
+  if (canSeeLogins()) {
     const reloadL = debounce(() => { logins.page = 0; load(); }, 260);
     byId("auUser").addEventListener("input", (e) => {
       logins.username = e.target.value.trim(); reloadL();
@@ -201,7 +202,7 @@ function build() {
 const current = () => (tab === "logins" ? logins : changes);
 
 function switchTab(next) {
-  if (next === "logins" && !isAdmin()) return;
+  if (next === "logins" && !canSeeLogins()) return;
   tab = next;
   document.querySelectorAll("#view-audit [data-tab]").forEach((b) =>
     b.classList.toggle("active", b.dataset.tab === tab));
