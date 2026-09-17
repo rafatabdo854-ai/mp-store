@@ -9,7 +9,14 @@
 <meta http-equiv="Pragma" content="no-cache">
 
 <link rel="icon" href="./assets/img/logo.png">
-<link rel="apple-touch-icon" href="./assets/img/logo.png">
+<link rel="apple-touch-icon" href="./assets/img/icon-192.png">
+
+<!-- تثبيت التطبيق على الشاشة الرئيسية -->
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="المخزن">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -104,6 +111,7 @@
       <button data-view="pricing"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12 12 20 4 12V4h8l8 8Z"/><circle cx="8.5" cy="8.5" r="1.2"/></svg>التسعير</button>
       <button data-view="accounting"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8"/><path d="M8 11h3"/><path d="M8 15h3"/><path d="M15 11v6"/><path d="M13.5 13.5h3"/></svg>المحاسبة</button>
       <button data-view="stocktake"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="m9 13 2 2 4-4"/></svg>الجرد</button>
+      <button data-view="audit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v5c0 4.4 3.2 8.5 8 10 4.8-1.5 8-5.6 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg>سجل التدقيق</button>
       <button data-view="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10"/><path d="M18 7h2"/><path d="M4 17h4"/><path d="M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>الإعدادات</button>
     </nav>
     <div class="side-foot">
@@ -174,6 +182,7 @@
       <section class="view" id="view-pricing"></section>
       <section class="view" id="view-accounting"></section>
       <section class="view" id="view-stocktake"></section>
+      <section class="view" id="view-audit"></section>
       <section class="view" id="view-settings"></section>
     </main>
 
@@ -211,6 +220,43 @@
       report("لم يبدأ تشغيل الكود. تأكد من رفع مجلد src بالكامل، وأن المتصفح يصل إلى cdn.jsdelivr.net");
     }
   }, 12000);
+})();
+</script>
+
+<!-- عامل الخدمة: فتح فوري بلا انتظار الشبكة -->
+<script>
+(function () {
+  if (!("serviceWorker" in navigator)) return;
+  // file:// لا يدعم عامل الخدمة — تجاهله أثناء التجربة المحلية
+  if (location.protocol === "file:") return;
+
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("./sw.js").then(function (reg) {
+      // نسخة جديدة جاهزة: نبلّغ المستخدم بدل إعادة التحميل فجأة أثناء إدخال إذن
+      reg.addEventListener("updatefound", function () {
+        var incoming = reg.installing;
+        if (!incoming) return;
+        incoming.addEventListener("statechange", function () {
+          if (incoming.state === "installed" && navigator.serviceWorker.controller) {
+            window.mpUpdateReady = function () {
+              incoming.postMessage("skip-waiting");
+              location.reload();
+            };
+            var box = document.getElementById("toasts");
+            if (!box) return;
+            var node = document.createElement("div");
+            node.className = "toast warn";
+            node.style.cursor = "pointer";
+            node.textContent = "صدرت نسخة جديدة — اضغط هنا لتحديث التطبيق";
+            node.onclick = window.mpUpdateReady;
+            box.append(node);
+          }
+        });
+      });
+    }).catch(function (err) {
+      console.warn("تعذّر تسجيل عامل الخدمة:", err.message);
+    });
+  });
 })();
 </script>
 
