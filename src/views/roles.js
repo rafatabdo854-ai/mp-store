@@ -301,7 +301,7 @@ async function paintUsers() {
       <td>${esc(u.full_name)} <span class="hint">(${esc(u.username)})</span>
         ${u.id === me ? `<span class="pill">أنت</span>` : ""}</td>
       <td>
-        <select data-user-role="${esc(u.id)}" data-previous="${esc(u.role)}"
+        <select style="min-width:150px" data-user-role="${esc(u.id)}" data-previous="${esc(u.role)}"
                 ${can("manage_users") ? "" : "disabled"}>
           ${roles.map((r) => `
             <option value="${esc(r.code)}" ${u.role === r.code ? "selected" : ""}>
