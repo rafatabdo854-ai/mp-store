@@ -1,122 +1,112 @@
-// حضور المستخدمين — من يعمل على النظام الآن.
+// تحديث التطبيق دون أن يمسح المستخدم ذاكرة المتصفح.
 //
-// طبقتان لأنهما تجيبان عن سؤالين مختلفين:
+// المشكلة التي يحلّها: عامل الخدمة يفحص وجود نسخة جديدة عند تحميل
+// الصفحة فقط. وأمين المخزن يفتح التطبيق صباحًا ولا يغلقه طوال اليوم،
+// فقد يظل على نسخة قديمة أيامًا بعد النشر.
 //
-// 1) Presence عبر Supabase Realtime: قائمة المتصلين الآن، تتحدّث خلال
-//    ثانية، ولا تكتب شيئًا في قاعدة البيانات. تختفي وحدها عند إغلاق
-//    التبويب أو انقطاع الشبكة، فلا تُظهر أحدًا "متصلًا" وهو ليس كذلك.
+// الحل: نسأل المتصفح عن نسخة جديدة كل CHECK_EVERY_MS وعند كل عودة
+// للتبويب. إن وُجدت، نعرض شريطًا يضغطه المستخدم وقتما يناسبه.
 //
-// 2) نبضة last_seen كل HEARTBEAT_MS: تبقى بعد الخروج، وتجيب عن
-//    "من لم يدخل منذ أسبوعين؟" — وهو ما لا تعرفه Presence أصلًا.
-//
-// الأولى للحظة، الثانية للتاريخ.
+// لماذا لا نُحدّث تلقائيًا؟ لأن إعادة التحميل وسط إدخال إذن فيه عشرة
+// أصناف تضيّع العمل. القرار للمستخدم، والشريط يبقى حتى يقرّر.
 
-import { db } from "../data/client.js";
-import { get } from "./store.js";
-import { APP } from "../config.js";
+const CHECK_EVERY_MS = 10 * 60 * 1000;   // فحص كل 10 دقائق
 
-const HEARTBEAT_MS = 3 * 60 * 1000;   // نبضة كل 3 دقائق
-const CHANNEL = "presence-online";
+let registration = null;
+let waiting = null;
+let shown = false;
 
-let channel = null;
-let timer = null;
-let listeners = new Set();
-let online = [];
+export function startUpdateWatch() {
+  if (!("serviceWorker" in navigator)) return;
 
-// من يريد متابعة قائمة المتصلين. يُرجع دالة لإلغاء الاشتراك.
-export function onPresence(fn) {
-  listeners.add(fn);
-  fn(online);
-  return () => listeners.delete(fn);
-}
+  navigator.serviceWorker.getRegistration().then((reg) => {
+    if (!reg) return;
+    registration = reg;
 
-export function onlineUsers() {
-  return online;
-}
+    // نسخة جاهزة ومنتظرة من جلسة سابقة
+    if (reg.waiting && navigator.serviceWorker.controller) announce(reg.waiting);
 
-function publish() {
-  listeners.forEach((fn) => {
-    try { fn(online); } catch (e) { console.error(e); }
-  });
-}
-
-// يُستدعى بعد الدخول.
-export function startPresence() {
-  const me = get("profile");
-  if (!me) return;
-
-  beat();
-  clearInterval(timer);
-  timer = setInterval(beat, HEARTBEAT_MS);
-
-  // نبضة فورية عند العودة للتبويب: من ترك الجهاز ساعة يظهر متصلًا
-  // خلال ثوانٍ من عودته، لا بعد ٣ دقائق
-  document.addEventListener("visibilitychange", onVisible);
-
-  if (!APP.realtime || channel) return;
-
-  channel = db().channel(CHANNEL, {
-    config: { presence: { key: me.id } },
-  });
-
-  channel
-    .on("presence", { event: "sync" }, collect)
-    .on("presence", { event: "join" }, collect)
-    .on("presence", { event: "leave" }, collect)
-    .subscribe(async (status) => {
-      if (status !== "SUBSCRIBED") return;
-      // ما نبثّه للآخرين: اسم ودور ووقت دخول فقط — لا شيء حسّاس،
-      // فأي مستخدم مشترك في القناة يستطيع قراءته
-      await channel.track({
-        id: me.id,
-        name: me.full_name,
-        role: me.role,
-        since: new Date().toISOString(),
+    reg.addEventListener("updatefound", () => {
+      const incoming = reg.installing;
+      if (!incoming) return;
+      incoming.addEventListener("statechange", () => {
+        // وجود controller يعني أنها ليست أول زيارة، فهذه ترقية لا تثبيت
+        if (incoming.state === "installed" && navigator.serviceWorker.controller) {
+          announce(incoming);
+        }
       });
     });
+
+    setInterval(check, CHECK_EVERY_MS);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") check();
+    });
+    window.addEventListener("online", check);
+  }).catch(() => {});
+
+  // العامل الجديد تولّى القيادة — أعد التحميل مرة واحدة فقط
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloading) return;
+    reloading = true;
+    location.reload();
+  });
 }
 
-export function stopPresence() {
-  clearInterval(timer);
-  timer = null;
-  document.removeEventListener("visibilitychange", onVisible);
-  if (channel) {
-    try { channel.untrack(); } catch (e) {}
-    db().removeChannel(channel);
-    channel = null;
-  }
-  online = [];
-  publish();
+function check() {
+  if (!registration || document.visibilityState === "hidden") return;
+  registration.update().catch(() => {});
 }
 
-function onVisible() {
-  if (document.visibilityState === "visible") beat();
+function announce(worker) {
+  waiting = worker;
+  if (shown) return;
+  shown = true;
+  showBar();
 }
 
-function collect() {
-  if (!channel) return;
-  const state = channel.presenceState();
+function showBar() {
+  if (document.getElementById("updateBar")) return;
 
-  // كل مستخدم قد يفتح أكثر من تبويب: نطوي تبويباته في صف واحد
-  // ونحتفظ بعددها، فالمدير يرى شخصًا واحدًا لا ثلاثة
-  const map = new Map();
-  for (const key of Object.keys(state)) {
-    for (const entry of state[key]) {
-      const found = map.get(entry.id);
-      if (found) {
-        found.tabs += 1;
-        if (entry.since < found.since) found.since = entry.since;
-      } else {
-        map.set(entry.id, { ...entry, tabs: 1 });
-      }
-    }
-  }
+  const bar = document.createElement("div");
+  bar.id = "updateBar";
+  bar.setAttribute("role", "status");
+  bar.style.cssText =
+    "position:fixed; inset-inline:0; bottom:0; z-index:9999;" +
+    "display:flex; gap:12px; align-items:center; justify-content:center;" +
+    "flex-wrap:wrap; padding:12px 16px;" +
+    "background:#2d6a86; color:#fff;" +
+    "font-size:.86rem; box-shadow:0 -2px 12px rgba(0,0,0,.25);";
 
-  online = [...map.values()].sort((a, b) => a.since.localeCompare(b.since));
-  publish();
-}
+  const text = document.createElement("span");
+  text.textContent = "صدرت نسخة جديدة من التطبيق.";
 
-// نبضة صامتة: فشلها لا يعني شيئًا للمستخدم، فلا نزعجه برسالة
-async function beat() {
-  try { await db().rpc("touch_last_seen"); } catch (e) {}
+  const now = document.createElement("button");
+  now.type = "button";
+  now.textContent = "تحديث الآن";
+  now.style.cssText =
+    "padding:6px 14px;border:0;border-radius:6px;cursor:pointer;" +
+    "background:#fff;color:#13303B;font:inherit;font-weight:600";
+
+  const later = document.createElement("button");
+  later.type = "button";
+  later.textContent = "لاحقًا";
+  later.style.cssText =
+    "padding:6px 10px;border:0;border-radius:6px;cursor:pointer;" +
+    "background:transparent;color:#fff;font:inherit;opacity:.85";
+
+  now.onclick = () => {
+    bar.remove();
+    // skipWaiting يُطلق controllerchange أعلاه، وهو من يعيد التحميل
+    if (waiting) waiting.postMessage("skip-waiting");
+    else location.reload();
+  };
+
+  later.onclick = () => {
+    bar.remove();
+    shown = false;   // سيظهر ثانية عند الفحص التالي
+  };
+
+  bar.append(text, now, later);
+  document.body.append(bar);
 }
