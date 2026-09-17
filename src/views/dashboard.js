@@ -49,6 +49,25 @@ function build() {
       </div>
     </div>
 
+    <div class="panel" id="negativePanel" hidden>
+      <div class="panel-head">
+        <h2 style="border:0;margin:0;padding:0;background:none">أصناف تحتاج شراء فوري (رصيد سالب)</h2>
+        <span class="spacer"></span>
+        <button class="btn ghost small" id="negativeExport">تنزيل Excel</button>
+      </div>
+      <div class="hint">صُرف من هذه الأصناف أكثر مما هو متوفر فعليًا — راجعها وابدأ أمر شراء (PR) حالًا.</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>الكود</th><th>الصنف</th><th class="center">الرصيد</th>
+            <th data-col="value">قيمة العجز</th>
+            <th>آخر إذن طلبه</th><th>بواسطة</th><th>التاريخ</th><th></th>
+          </tr></thead>
+          <tbody id="negativeBody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="panel" id="riskPanel">
       <div class="panel-head">
         <h2 style="border:0;margin:0;padding:0;background:none">أصناف على وشك النفاد</h2>
@@ -157,6 +176,7 @@ function build() {
 
   byId("reorderExport").onclick = exportReorder;
   byId("reorderPrint").onclick = printReorder;
+  byId("negativeExport").onclick = exportNegative;
 
   markPeriod();
   built = true;
@@ -214,6 +234,7 @@ function paint() {
   paintDonuts(k, showValue);
   paintChart(data.series);
   paintTrend(data.movement);
+  paintNegative(showValue);
   paintRisk();
   paintReorder(showValue);
   paintBars();
@@ -232,7 +253,16 @@ function paintKpi(k, mv, showValue) {
     ? `${fmtNum(mv.out_now)} وحدة منصرفة`
     : `الصرف ${Number(mv.out_change) >= 0 ? "أعلى" : "أقل"} ${fmtNum(Math.abs(Number(mv.out_change)))}% عن السابق`;
 
-  const cards = [
+  const cards = [];
+
+  // كارت السالب أولًا وبأعلى أولوية — لا يظهر إلا لو فيه فعلًا أصناف سالبة
+  if (k.negative_count > 0) cards.push({
+    tone: "out", label: "رصيد سالب — شراء فوري", value: fmtNum(k.negative_count),
+    sub: "أصناف صُرف منها أكثر من المتاح",
+    scroll: "negativePanel",
+  });
+
+  cards.push(
     {
       tone: "brand", label: "الأصناف النشطة", value: fmtNum(k.items_count),
       sub: `${fmtNum(k.total_stock)} وحدة في المخزن`,
@@ -258,7 +288,7 @@ function paintKpi(k, mv, showValue) {
       sub: trend,
       goto: "log",
     },
-  ];
+  );
 
   if (showValue) cards.push({
     tone: "copper", label: "قيمة المخزون", value: fmtMoney(k.stock_value), money: true,
@@ -374,6 +404,13 @@ function paintDonuts(k, showValue) {
 /** مركز الإجراءات: لا يظهر إلا ما يحتاج تدخّلًا فعليًا. */
 function paintAlerts(k, mv) {
   const alerts = [];
+
+  // الأخطر: رصيد سالب فعليًا — صُرف أكثر مما هو موجود، يحتاج PR فوري
+  if (k.negative_count > 0) alerts.push({
+    kind: "danger", title: `${fmtNum(k.negative_count)} صنف برصيد سالب — يحتاج شراء فوري`,
+    body: "صُرف أكثر مما هو متوفر فعليًا. راجع القائمة وابدأ أمر شراء (PR) حالًا.",
+    action: "عرض القائمة", scroll: "negativePanel",
+  });
 
   if (k.out_of_stock > 0) alerts.push({
     kind: "danger", title: `${fmtNum(k.out_of_stock)} صنف نفد بالكامل`,
@@ -497,6 +534,48 @@ function coverPill(days) {
   if (days === null || days === undefined) return `<span class="pill">—</span>`;
   const cls = days <= 7 ? "zero" : days <= 14 ? "out" : days <= 30 ? "low" : "ok";
   return `<span class="pill ${cls}">${fmtNum(days)} يوم</span>`;
+}
+
+/** أصناف رصيدها سالب فعليًا — تحتاج أمر شراء (PR) فوري. */
+function paintNegative(showValue) {
+  const rows = data.negative_stock || [];
+  byId("negativePanel").hidden = rows.length === 0;
+  if (!rows.length) return;
+
+  fillTable(byId("negativeBody"), rows.map((r) => `
+    <tr>
+      <td class="code">${esc(r.code)}</td>
+      <td>${esc(r.label)}</td>
+      <td class="num center"><b style="color:var(--out,#c0392b)">${fmtNum(r.balance)}</b> ${esc(r.unit)}</td>
+      ${showValue ? `<td class="num">${fmtMoney(r.shortfall_value)}</td>` : ""}
+      <td>${r.voucher_no ? esc(r.voucher_no) : "-"}</td>
+      <td>${r.requested_by ? esc(r.requested_by) : "-"}</td>
+      <td>${r.requested_at ? fmtDateTime(r.requested_at) : "-"}</td>
+      <td><button class="btn ghost small" data-goto="log"
+        data-params="${esc(new URLSearchParams({ search: r.code }).toString())}">حركته</button></td>
+    </tr>`), showValue ? 8 : 7, "لا توجد أصناف برصيد سالب");
+
+  document.querySelectorAll("#negativePanel [data-col='value']")
+    .forEach((n) => { n.hidden = !showValue; });
+}
+
+/** تصدير قائمة الأصناف السالبة لإرفاقها بأمر الشراء (PR). */
+async function exportNegative() {
+  const rows = data?.negative_stock || [];
+  if (!rows.length) return toastError("لا توجد أصناف برصيد سالب حاليًا");
+
+  await exportRows(rows.map((r) => ({
+    "الكود": r.code,
+    "الصنف": r.label,
+    "الرصيد": r.balance,
+    "الوحدة": r.unit,
+    "قيمة العجز": r.shortfall_value,
+    "آخر إذن": r.voucher_no || "",
+    "بواسطة": r.requested_by || "",
+    "التاريخ": r.requested_at ? fmtDateTime(r.requested_at) : "",
+    "الجهة / المشروع": r.party || r.project || "",
+  })), "أصناف_رصيد_سالب", "PR");
+  toast("تم تنزيل ملف Excel");
 }
 
 function paintRisk() {
