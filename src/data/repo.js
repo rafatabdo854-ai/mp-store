@@ -167,6 +167,47 @@ export const users = {
   setActive(id, is_active) { return run(db().from("profiles").update({ is_active }).eq("id", id).select().single()); },
 };
 
+/* ------------------------- الأدوار والصلاحيات ------------------------- */
+export const rbac = {
+  /** صلاحيات المستخدم الحالي — تُحمَّل عند الدخول. */
+  myPermissions() { return run(db().rpc("my_permissions")); },
+
+  roles()       { return run(db().from("roles").select("*").order("sort").order("label")); },
+  permissions() { return run(db().from("permissions").select("*").order("sort")); },
+  map()         { return run(db().from("role_permissions").select("*")); },
+
+  /** منح صلاحية لدور. */
+  grant(roleCode, permissionCode) {
+    return run(db().from("role_permissions")
+      .insert({ role_code: roleCode, permission_code: permissionCode }).select());
+  },
+
+  /** سحب صلاحية من دور. */
+  revoke(roleCode, permissionCode) {
+    return run(db().from("role_permissions").delete()
+      .eq("role_code", roleCode).eq("permission_code", permissionCode));
+  },
+
+  createRole({ code, label }) {
+    return run(db().from("roles").insert({ code, label, is_system: false, sort: 100 })
+      .select().single());
+  },
+
+  renameRole(code, label) {
+    return run(db().from("roles").update({ label }).eq("code", code).select().single());
+  },
+
+  removeRole(code) { return run(db().from("roles").delete().eq("code", code)); },
+
+  /** عدد المستخدمين في كل دور — لمنع حذف دور مشغول ولعرضه في الشاشة. */
+  async roleUsage() {
+    const rows = await run(db().from("profiles").select("role"));
+    const count = {};
+    for (const r of rows) count[r.role] = (count[r.role] || 0) + 1;
+    return count;
+  },
+};
+
 export const settings = {
   async all() {
     const rows = await run(db().from("settings").select("*"));
