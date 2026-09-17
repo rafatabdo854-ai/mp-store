@@ -188,11 +188,20 @@ export function makeVoucherView(type) {
     const qty = toInt(qtyRaw);
     if (!isIn) {
       const reserved = cart.filter((l) => l.item_id === item.id).reduce((s, l) => s + l.qty, 0);
-      if (qty + reserved > item.balance) {
+      const allowNegative = Boolean(get("settings")?.stock?.allow_negative_stock);
+      const willGoNegative = qty + reserved > item.balance;
+
+      if (willGoNegative && !allowNegative) {
         paintErrors(form, {
           qty: `الرصيد لا يكفي. المتاح ${fmtNum(item.balance - reserved)} ${item.unit}`,
         });
         return;
+      }
+
+      // السماح بالسالب مفعّل من الإعدادات: نتابع، لكن ننبّه المستخدم بوضوح
+      // حتى لا يصرف كمية سالبة عن غير قصد ظنًا منه أن الحقل مجرد تحذير شكلي.
+      if (willGoNegative && allowNegative) {
+        toastWarn(`تنبيه: سيصبح رصيد «${item.code}» سالبًا (${fmtNum(item.balance - reserved - qty)} ${item.unit})`);
       }
     }
 
