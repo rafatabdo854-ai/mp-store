@@ -23,7 +23,7 @@ function build() {
         <button class="btn ghost small" id="logPrint">طباعة</button>
       </div>
       <div class="toolbar">
-        <input type="search" id="logSearch" placeholder="رقم إذن، صنف، جهة...">
+        <input type="search" id="logSearch" placeholder="رقم إذن، صنف، جهة، كود...">
         <select id="logType">
           <option value="">كل الأنواع</option>
           <option value="in">وارد</option>
@@ -108,7 +108,18 @@ export function render(params = {}) {
 async function load() {
   byId("logBody").innerHTML = `<tr><td colspan="9"><div class="skeleton" style="height:18px"></div></td></tr>`;
   try {
-    const { rows, count } = await txns.list({ ...state, size: APP.logPageSize });
+    const params = { ...state, size: APP.logPageSize };
+
+    // البحث الأصلي بيدوّر في voucher_no/item_name/party بس، وده مش بيغطي
+    // كود الصنف (زي ACB-0001) لأنه مش متخزّن في جدول transactions أصلًا.
+    // لو النص المكتوب مطابق لكود صنف موجود، نبحث بالـ item_id بتاعه بدل النص.
+    if (state.search) {
+      const term = state.search.trim().toLowerCase();
+      const item = get("items").find((i) => i.code.toLowerCase() === term);
+      if (item) { params.itemId = item.id; params.search = ""; }
+    }
+
+    const { rows, count } = await txns.list(params);
     state.rows = rows; state.count = count;
     paint();
   } catch (err) { toastError(err.message); }
