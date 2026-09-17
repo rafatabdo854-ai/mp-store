@@ -3,7 +3,7 @@ import { byId, esc, fillTable, onClick } from "../core/dom.js";
 import { fmtDateTime, fmtNum } from "../core/format.js";
 import { get, set } from "../core/store.js";
 import { users, lists, settings as settingsRepo, items as itemsRepo, audit, txns } from "../data/repo.js";
-import { can, ROLES, roleLabel } from "../auth/roles.js";
+import { can, roleLabel, roleOptions } from "../auth/roles.js";
 import { createUser, changePassword, currentUser } from "../auth/auth.js";
 import { toast, toastError, confirmDialog, openModal, withBusy } from "../core/ui.js";
 import { validate, rules, paintErrors } from "../core/validation.js";
@@ -209,8 +209,8 @@ async function loadUsers() {
         <td>${esc(u.full_name)}</td>
         <td class="code">${esc(u.username)}</td>
         <td><select data-user="${esc(u.id)}" style="max-width:170px">
-          ${Object.entries(ROLES).map(([value, label]) =>
-            `<option value="${value}" ${u.role === value ? "selected" : ""}>${esc(label)}</option>`).join("")}
+          ${roleOptions().map(({ code, label }) =>
+            `<option value="${code}" ${u.role === code ? "selected" : ""}>${esc(label)}</option>`).join("")}
         </select></td>
         <td class="center">${u.is_active
           ? `<span class="pill ok">نشط</span>` : `<span class="pill zero">موقوف</span>`}</td>
@@ -242,7 +242,7 @@ function userDialog() {
         </div>
         <div class="field full">
           <label for="u_role">الدور</label>
-          <select id="u_role">${Object.entries(ROLES).map(([v, l]) =>
+          <select id="u_role">${roleOptions().map(({ code: v, label: l }) =>
             `<option value="${v}">${esc(l)}</option>`).join("")}</select>
         </div>
       </form>
