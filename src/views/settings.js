@@ -123,12 +123,10 @@ function build() {
         <div><span>النظام</span><b>${esc(APP.name)}</b></div>
         <div><span>الجهة</span><b>${esc(APP.company || "-")}</b></div>
         <div><span>الإصدار</span><b class="code">${esc(APP.version)}</b></div>
-        <div><span>التطوير</span><b>Eng. Mahmoud Fouad</b></div>
+        <div><span>التطوير</span><b>${esc(APP.developer || "-")}</b></div>
         <div><span>الحالة</span><b>تحت التطوير المستمر</b></div>
       </div>
-      <div class="hint" style="margin-top:10px">
-        Elhana Electric Company
-      </div>
+      ${APP.note ? `<div class="hint" style="margin-top:10px">${esc(APP.note)}</div>` : ""}
     </div>`;
 
   const me = currentUser();
