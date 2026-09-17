@@ -22,6 +22,7 @@ export function init() {
   }));
   byId("itemCategoryFilter").addEventListener("change", (e) => { filters.category = e.target.value; paint(); });
   byId("itemStockFilter").addEventListener("change", (e) => { filters.stock = e.target.value; paint(); });
+  byId("btnAddItem").hidden = !can("add_item");
   byId("btnAddItem").addEventListener("click", () => itemForm(null));
   byId("btnExportItems").addEventListener("click", exportList);
   byId("btnPrintItems").addEventListener("click", printList);
