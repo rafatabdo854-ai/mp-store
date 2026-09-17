@@ -1,8 +1,8 @@
 /** الإعدادات — المستخدمون والقوائم والنسخ الاحتياطي وسجل التدقيق. */
 import { byId, esc, fillTable, onClick } from "../core/dom.js";
-import { fmtDateTime, fmtNum } from "../core/format.js";
+import { fmtNum } from "../core/format.js";
 import { get, set } from "../core/store.js";
-import { users, lists, settings as settingsRepo, items as itemsRepo, audit, txns } from "../data/repo.js";
+import { users, lists, settings as settingsRepo, items as itemsRepo, txns } from "../data/repo.js";
 import { can, roleLabel, roleOptions } from "../auth/roles.js";
 import { createUser, changePassword, currentUser } from "../auth/auth.js";
 import { toast, toastError, confirmDialog, openModal, withBusy } from "../core/ui.js";
@@ -102,21 +102,6 @@ function build() {
       </div>
     </div>
 
-    ${can("view_audit") ? `
-    <div class="panel">
-      <div class="panel-head">
-        <h2 style="margin:0">سجل التدقيق</h2>
-        <span class="spacer"></span>
-        <button class="btn ghost small" id="btnLoadAudit">تحديث</button>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>الوقت</th><th>المستخدم</th><th>الإجراء</th><th>السجل</th><th>تفاصيل</th></tr></thead>
-          <tbody id="auditBody"><tr><td colspan="5" class="empty">اضغط تحديث لعرض السجل</td></tr></tbody>
-        </table>
-      </div>
-    </div>` : ""}
-
     <div class="panel">
       <h2>عن النظام</h2>
       <div class="about">
@@ -139,7 +124,6 @@ function build() {
   byId("btnRecalc") && (byId("btnRecalc").onclick = recalc);
   byId("btnAddUser") && (byId("btnAddUser").onclick = userDialog);
   byId("btnSaveSettings") && (byId("btnSaveSettings").onclick = saveSettings);
-  byId("btnLoadAudit") && (byId("btnLoadAudit").onclick = loadAudit);
 
   byId("addSupplier").onclick = () => addToList("supplier");
   byId("addProject").onclick  = () => addToList("project");
@@ -380,19 +364,5 @@ async function backup() {
       { name: "المشاريع", rows: get("projects").map((p) => ({ "اسم المشروع": p.name })) },
     ], "نسخة_احتياطية_المخزن");
     toast("تم تنزيل النسخة الاحتياطية");
-  } catch (err) { toastError(err.message); }
-}
-
-async function loadAudit() {
-  try {
-    const rows = await audit.list(200);
-    fillTable(byId("auditBody"), rows.map((a) => `
-      <tr>
-        <td>${fmtDateTime(a.at)}</td>
-        <td>${esc(a.actor_name)}</td>
-        <td>${esc(a.action)}</td>
-        <td class="code">${esc(a.entity)} ${esc(a.entity_id)}</td>
-        <td class="hint">${esc(JSON.stringify(a.details))}</td>
-      </tr>`), 5, "لا توجد سجلات");
   } catch (err) { toastError(err.message); }
 }
