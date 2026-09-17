@@ -5,6 +5,8 @@ import { toast, toastError, toastWarn, setConnection, confirmDialog } from "./co
 import { initClient, isConfigured } from "./data/client.js";
 import { items as itemsRepo, lists, settings as settingsRepo, rbac } from "./data/repo.js";
 import { startRealtime, watchNetwork, onTxnChange } from "./data/realtime.js";
+import { startPresence, stopPresence } from "./core/presence.js";
+import { startUpdateWatch } from "./core/updates.js";
 import { restoreSession, signOut, currentUser } from "./auth/auth.js";
 import { startSessionGuard, stopSessionGuard, isSessionStale, markExpiry, takeExpiryReason } from "./auth/session-guard.js";
 import { mountLogin } from "./auth/login.js";
@@ -121,6 +123,8 @@ async function boot(profile) {
   }
 
   applyNavPermissions();
+  startPresence();
+  startUpdateWatch();
   wireChrome();
 
   // عرض فوري من النسخة المحلية ثم تحديثها من الخادم
@@ -212,6 +216,7 @@ function wireChrome() {
   byId("btnLogout").addEventListener("click", async () => {
     const ok = await confirmDialog({ title: "تسجيل الخروج", message: "هل تريد إنهاء الجلسة الآن؟" });
     if (!ok) return;
+    stopPresence();
     stopSessionGuard();
     await signOut();
     location.reload();
