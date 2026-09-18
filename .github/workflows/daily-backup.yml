@@ -2,6 +2,7 @@ name: نسخة احتياطية يومية
 
 on:
   schedule:
+    # ٠٠:٠٠ بتوقيت جرينتش ≈ ٢-٣ فجرًا بتوقيت القاهرة
     - cron: "0 0 * * *"
   workflow_dispatch:
 
@@ -43,7 +44,36 @@ jobs:
           body: file://backup/report.txt
           attachments: ${{ steps.report.outputs.zip }}
 
-      - name: تنبيه عند الفشل
+      # تأكيد على تليجرام: الملف نفسه مرفق، فتُراجَع النسخة من الهاتف
+      # دون فتح البريد. التأكيد هنا هو الدليل على أن المهمة عملت فعلًا.
+      - name: تأكيد على تليجرام
+        if: success()
+        env:
+          TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ZIP: ${{ steps.report.outputs.zip }}
+        run: |
+          # التنبيه اختياري: من لم يضبط تليجرام تمرّ المهمة عنده بلا خطأ
+          if [ -z "$TOKEN" ]; then echo "تليجرام غير مضبوط — تخطٍّ"; exit 0; fi
+          curl -sS -F "chat_id=$CHAT" \
+               -F "caption=$(head -c 900 backup/report.txt)" \
+               -F "document=@$ZIP" \
+               "https://api.telegram.org/bot$TOKEN/sendDocument" > /dev/null
+
+      - name: تنبيه الفشل على تليجرام
+        if: failure()
+        env:
+          TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$TOKEN" ]; then exit 0; fi
+          curl -sS -X POST "https://api.telegram.org/bot$TOKEN/sendMessage" \
+            -d "chat_id=$CHAT" \
+            -d "text=⚠️ فشلت النسخة الاحتياطية اليومية للمخزن. راجع: $RUN" \
+            > /dev/null || true
+
+      - name: تنبيه بالبريد عند الفشل
         if: failure()
         uses: dawidd6/action-send-mail@v3
         with:

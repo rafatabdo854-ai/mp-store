@@ -1,0 +1,29 @@
+name: ملخّص المخزن اليومي
+
+# مهمة منفصلة عن النسخة الاحتياطية عمدًا: تعمل في وقت مختلف (بداية
+# الدوام لا الفجر)، وفشل إحداهما يجب ألّا يمنع الأخرى.
+on:
+  schedule:
+    # ٠٥:٠٠ جرينتش ≈ ٨ صباحًا بتوقيت القاهرة — قبل بداية الدوام
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: جلب الكود
+        uses: actions/checkout@v4
+
+      - name: إرسال الملخّص
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python3 tools/daily_report.py
