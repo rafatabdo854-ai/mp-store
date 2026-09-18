@@ -7,7 +7,7 @@ import { todayISO, fmtDate, fmtNum, itemFullLabel, toInt, toNum } from "../core/
 import { get, set, on } from "../core/store.js";
 import { txns, lists } from "../data/repo.js";
 import { can } from "../auth/roles.js";
-import { toast, toastError, toastWarn, confirmDialog, withBusy } from "../core/ui.js";
+import { toast, toastError, toastWarn, confirmDialog, withBusy, openModal } from "../core/ui.js";
 import { validate, rules, paintErrors, clearErrors } from "../core/validation.js";
 import { printTable } from "./print.js";
 import { refreshSummary } from "./shared.js";
@@ -188,20 +188,11 @@ export function makeVoucherView(type) {
     const qty = toInt(qtyRaw);
     if (!isIn) {
       const reserved = cart.filter((l) => l.item_id === item.id).reduce((s, l) => s + l.qty, 0);
-      const allowNegative = Boolean(get("settings")?.stock?.allow_negative_stock);
-      const willGoNegative = qty + reserved > item.balance;
-
-      if (willGoNegative && !allowNegative) {
+      if (qty + reserved > item.balance) {
         paintErrors(form, {
           qty: `الرصيد لا يكفي. المتاح ${fmtNum(item.balance - reserved)} ${item.unit}`,
         });
         return;
-      }
-
-      // السماح بالسالب مفعّل من الإعدادات: نتابع، لكن ننبّه المستخدم بوضوح
-      // حتى لا يصرف كمية سالبة عن غير قصد ظنًا منه أن الحقل مجرد تحذير شكلي.
-      if (willGoNegative && allowNegative) {
-        toastWarn(`تنبيه: سيصبح رصيد «${item.code}» سالبًا (${fmtNum(item.balance - reserved - qty)} ${item.unit})`);
       }
     }
 
@@ -279,7 +270,10 @@ export function makeVoucherView(type) {
             ...(base_price !== undefined ? { base_price, extra_costs: extra_costs || 0 } : {}),
           })),
         });
-        toast(`تم تسجيل الإذن ${res.voucher_no} — ${res.lines} صنف / ${res.total_qty} وحدة`);
+        // إيصال بدل إشعار عابر: رقم الإذن هو ما يكتبه أمين المخزن على
+        // الورقة ويحتفظ به. الإشعار يختفي بعد ثوانٍ، وقد يكون وقتها
+        // منشغلًا بالكرتونة في يده — فيضيع الرقم ولا يعرف كيف يستعيده.
+        showReceipt(res, values);
         cart = [];
         byId(`v_notes_${type}`).value = "";
         paintCart();
@@ -287,6 +281,45 @@ export function makeVoucherView(type) {
         await Promise.all([paintLog(), refreshSummary(), refreshLists()]);
       } catch (err) { toastError(err.message); }
     }, "جارٍ التسجيل...");
+  }
+
+  /** إيصال ما بعد الحفظ — رقم الإذن كبير، وطباعة بضغطة واحدة. */
+  function showReceipt(res, values) {
+    const label = type === "in" ? "إذن وارد" : "إذن صرف";
+    const party = (values.party || "").trim();
+    const project = (values.project || "").trim();
+
+    const modal = openModal({
+      title: "تم تسجيل " + label,
+      bodyHtml: `
+        <div class="receipt">
+          <div class="stamp">مُسجَّل</div>
+          <div class="meta">رقم الإذن</div>
+          <div class="no" data-type="${type}">${esc(res.voucher_no)}</div>
+          <div class="meta">
+            ${fmtNum(res.lines)} صنف &nbsp;•&nbsp; ${fmtNum(res.total_qty)} وحدة
+          </div>
+          <div class="meta">${esc(fmtDate(values.date))}</div>
+          ${party ? `<div class="meta">${type === "in" ? "المورد" : "الجهة"}: ${esc(party)}</div>` : ""}
+          ${project ? `<div class="meta">المشروع: ${esc(project)}</div>` : ""}
+        </div>`,
+      actions: [
+        {
+          label: "طباعة الإذن",
+          onClick: (root, close) => { close(); printVoucher(res.voucher_no); },
+        },
+        {
+          label: "إذن جديد",
+          kind: "ghost",
+          onClick: (root, close) => {
+            close();
+            byId(`v_party_${type}`)?.focus();
+          },
+        },
+      ],
+    });
+
+    return modal;
   }
 
   async function refreshLists() {
