@@ -298,3 +298,45 @@ html.lang-en .num { direction: ltr; }
 
 /* الأرقام والأكواد تبقى بالاتجاه اللاتيني في اللغتين */
 .code, .num, input[type="date"] { direction: ltr; }
+
+/* ------------------------------------------------------------
+   القائمة الجانبية فوق الشريط السفلي
+
+   الشريط السفلي مثبّت بارتفاع ~56 بكسل، والقائمة تمتد إلى حافة
+   الشاشة — فيغطّي الشريطُ آخرَها، وفيه زر تسجيل الخروج.
+   حجزتُ المساحة لـ main ونسيتُ القائمة.
+
+   الحل: تقصير القائمة بمقدار الشريط، وجعل جسمها قابلًا للتمرير
+   بحيث يبقى تذييلها (المستخدم وزر الخروج) ملتصقًا بأسفلها دائمًا
+   مهما طالت قائمة الأقسام.
+   ------------------------------------------------------------ */
+@media (max-width: 860px) {
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    /* ارتفاع الشريط + مساحة إيماءات النظام */
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    inset-block-end: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* الأقسام تمرّر، والتذييل ثابت أسفلها */
+  .sidebar .nav {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sidebar .side-foot {
+    flex: none;
+    border-top: 1px solid var(--line);
+    background: var(--sidebar);
+    padding-bottom: 10px;
+  }
+}
+
+/* على الشاشات القصيرة جدًا قد تطول الأقسام فوق الشاشة كلها،
+   فالتمرير أعلاه هو ما يُبقي زر الخروج في المتناول */
+@media (max-height: 620px) {
+  .sidebar .brand { padding-block: 10px; }
+  .sidebar .nav button { padding-block: 9px; }
+}
