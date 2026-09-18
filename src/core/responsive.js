@@ -27,6 +27,9 @@ const ICONS = {
   voucherOut: '<path d="M12 14V4"/><path d="m8 8 4-4 4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
   items: '<path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/>',
   more: '<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>',
+  // عدسة مكبّرة بعلامة زائد — ورجوع عند آخر مقاس
+  zoomIn: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="M11 8v6"/><path d="M8 11h6"/>',
+  zoomReset: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="M8 11h6"/>',
 };
 
 const LABELS = {
@@ -54,12 +57,24 @@ function readScale() {
 
 function applyScale(scale) {
   document.documentElement.style.setProperty("--ui-scale", String(scale));
+
   const btn = byId("btnScale");
-  if (btn) {
-    const step = SCALES.indexOf(scale) + 1;
-    btn.textContent = step === 1 ? "أ" : "أ" + "+".repeat(step - 1);
-    btn.title = "حجم الخط: " + Math.round(scale * 100) + "٪";
-  }
+  if (!btn) return;
+
+  const last = scale === SCALES[SCALES.length - 1];
+  const percent = Math.round(scale * 100);
+
+  // الأيقونة تتحوّل عند آخر مقاس: الضغطة التالية ترجع للحجم العادي،
+  // فعلامة الزائد تصير مضلِّلة
+  btn.innerHTML =
+    '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+    (last ? ICONS.zoomReset : ICONS.zoomIn) + "</svg>" +
+    (scale === 1 ? "" : '<span class="zoom-badge">' + percent + "%</span>");
+
+  btn.title = last
+    ? "حجم العرض " + percent + "٪ — اضغط للرجوع للحجم العادي"
+    : "تكبير حجم العرض (" + percent + "٪)";
+  btn.setAttribute("aria-label", btn.title);
 }
 
 function mountScaleButton() {
@@ -70,8 +85,7 @@ function mountScaleButton() {
   const btn = document.createElement("button");
   btn.id = "btnScale";
   btn.type = "button";
-  btn.className = "btn ghost small";
-  btn.setAttribute("aria-label", "تكبير حجم الخط");
+  btn.className = "icon-btn zoom-btn";
 
   btn.addEventListener("click", () => {
     const next = SCALES[(SCALES.indexOf(readScale()) + 1) % SCALES.length];
