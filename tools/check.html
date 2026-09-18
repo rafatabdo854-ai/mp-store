@@ -319,7 +319,21 @@ function checkDatabase() {
 
   add("مشروع Supabase", "ok", "OK", url.replace("https://", ""));
 
-  var head = { apikey: key, Authorization: "Bearer " + key };
+  // نستعير جلسة المستخدم المفتوحة من نفس الأصل بدل مفتاح anon.
+  //
+  // السبب: سياسات RLS تسمح للمسجّلين فقط، فمفتاح anon يقرأ جدول
+  // permissions فيعود فارغًا، فتبدو كل الصلاحيات مفقودة وهي موجودة.
+  var token = key;
+  var signedIn = false;
+  try {
+    var saved = JSON.parse(localStorage.getItem("mpstore.auth") || "null");
+    if (saved && saved.access_token) { token = saved.access_token; signedIn = true; }
+  } catch (e) {}
+
+  add("هوية الفحص", signedIn ? "ok" : "warn", signedIn ? "دخول" : "anon",
+      signedIn ? "بجلستك المفتوحة" : "افتح التطبيق وسجّل الدخول ليكتمل فحص الصلاحيات");
+
+  var head = { apikey: key, Authorization: "Bearer " + token };
 
   // وصف OpenAPI يُعدّد كل الجداول والدوال في طلب واحد دون تشغيل أيّ منها.
   //
@@ -329,7 +343,7 @@ function checkDatabase() {
   var specRow = add("قراءة فهرس قاعدة البيانات", "wait");
 
   return fetch(url + "/rest/v1/", {
-      headers: { apikey: key, Authorization: "Bearer " + key,
+      headers: { apikey: key, Authorization: "Bearer " + token,
                  Accept: "application/openapi+json" }
     })
     .then(function (res) { return res.ok ? res.json() : null; })
@@ -362,10 +376,19 @@ function checkDatabase() {
       var files = Object.keys(missingFrom);
       if (files.length) problems.push("ملفات SQL لم تُشغَّل: " + files.join("، "));
 
+      // بلا جلسة لا يمكن قراءة الجدول أصلًا، فالفحص يُتخطّى بدل أن يكذب
+      if (!signedIn) {
+        add("اكتمال جدول الصلاحيات", "warn", "تخطّي", "يحتاج تسجيل دخول");
+        return;
+      }
+
       return fetch(url + "/rest/v1/permissions?select=code", { headers: head })
         .then(function (res) { return res.ok ? res.json() : null; })
         .then(function (rows) {
-          if (!rows) return;
+          if (!rows || !rows.length) {
+            add("اكتمال جدول الصلاحيات", "warn", "?", "تعذّرت القراءة");
+            return;
+          }
           var have = rows.map(function (r) { return r.code; });
           var lack = EXPECTED_PERMS.filter(function (c) { return have.indexOf(c) === -1; });
           add("جدول الصلاحيات مكتمل", lack.length ? "warn" : "ok",
