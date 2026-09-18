@@ -1,20 +1,28 @@
 /** تنسيق التواريخ والأرقام والعملة. */
 import { APP } from "../config.js";
 
+// لغة العرض تُقرأ من الصفحة لا من متغيّر محلّي: i18n يضبط lang على
+// عنصر html، فيتبعه التنسيق تلقائيًا دون استيراد متبادل بين الوحدتين.
+const locale = () =>
+  (document.documentElement.getAttribute("lang") === "en" ? "en-GB" : "ar-EG");
+
+const currency = () =>
+  (document.documentElement.getAttribute("lang") === "en" ? "EGP" : APP.currency);
+
 export const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export function fmtDate(value) {
   if (!value) return "-";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
-  return d.toLocaleDateString("ar-EG", { year: "numeric", month: "2-digit", day: "2-digit" });
+  return d.toLocaleDateString(locale(), { year: "numeric", month: "2-digit", day: "2-digit" });
 }
 
 export function fmtDateTime(value) {
   if (!value) return "-";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
-  return d.toLocaleString("ar-EG", { dateStyle: "short", timeStyle: "short" });
+  return d.toLocaleString(locale(), { dateStyle: "short", timeStyle: "short" });
 }
 
 export function fmtNum(value, digits = 0) {
@@ -24,7 +32,7 @@ export function fmtNum(value, digits = 0) {
 }
 
 export function fmtMoney(value) {
-  return `${fmtNum(value, 2)} ${APP.currency}`;
+  return `${fmtNum(value, 2)} ${currency()}`;
 }
 
 export const toInt = (v, def = 0) => {
