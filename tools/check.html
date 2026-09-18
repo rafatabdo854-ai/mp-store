@@ -51,7 +51,8 @@ var GROUPS = [
   { name: "الجذر", files: ["index.html", "manifest.webmanifest", "sw.js"] },
 
   { name: "الأنماط", files: [
-    "assets/css/main.css", "assets/css/login.css", "assets/css/print.css"] },
+    "assets/css/main.css", "assets/css/login.css", "assets/css/print.css",
+    "assets/css/responsive.css"] },
 
   { name: "الأيقونات", files: [
     "assets/img/logo.png", "assets/img/icon-192.png", "assets/img/icon-512.png",
@@ -61,7 +62,7 @@ var GROUPS = [
     "src/config.js", "src/main.js",
     "src/core/dom.js", "src/core/format.js", "src/core/validation.js",
     "src/core/ui.js", "src/core/store.js",
-    "src/core/presence.js", "src/core/updates.js"] },
+    "src/core/presence.js", "src/core/updates.js", "src/core/responsive.js"] },
 
   { name: "البيانات", files: [
     "src/data/client.js", "src/data/repo.js", "src/data/realtime.js", "src/data/excel.js"] },
@@ -82,8 +83,9 @@ var GROUPS = [
     "sql/05_accounting.sql", "sql/06_login_guard.sql", "sql/09_permissions.sql",
     "sql/10_presence.sql", "sql/11_permission_cleanup.sql"] },
 
-  { name: "أدوات", optional: true, files: [
-    "tools/backup.py", ".github/workflows/daily-backup.yml"] },
+  // ملاحظة: .github/ لا يُقدَّم على GitHub Pages (المجلدات التي تبدأ بنقطة
+  // متجاهلة)، فلا يمكن فحص ملف المهمة من هنا ولو كان موجودًا.
+  { name: "أدوات", optional: true, files: ["tools/backup.py"] },
 ];
 
 // دوال قاعدة البيانات ومصدر كل واحدة
@@ -318,49 +320,65 @@ function checkDatabase() {
   add("مشروع Supabase", "ok", "OK", url.replace("https://", ""));
 
   var head = { apikey: key, Authorization: "Bearer " + key };
-  var missingFrom = {};
-  var jobs = [];
 
-  TABLES.forEach(function (t) {
-    var row = add("جدول " + t.name, "wait");
-    jobs.push(fetch(url + "/rest/v1/" + t.name + "?select=*&limit=1", { headers: head })
-      .then(function (res) {
-        if (res.status === 404) { mark(row, "bad", "404", "من " + t.from); missingFrom[t.from] = 1; }
-        else mark(row, "ok", "OK");
-      })
-      .catch(function () { mark(row, "warn", "NET"); }));
-  });
+  // وصف OpenAPI يُعدّد كل الجداول والدوال في طلب واحد دون تشغيل أيّ منها.
+  //
+  // النداء المباشر لا يصلح للفحص: PostgREST يردّ 404 على دالة لها معاملات
+  // إجبارية إذا نوديت بجسم فارغ، لأنه يبحث عن توقيع بلا معاملات ولا يجده.
+  // فتبدو الدوال الموجودة مفقودة.
+  var specRow = add("قراءة فهرس قاعدة البيانات", "wait");
 
-  RPCS.forEach(function (r) {
-    var row = add("دالة " + r.name, "wait");
-    var h2 = { apikey: key, Authorization: "Bearer " + key, "Content-Type": "application/json" };
-    jobs.push(fetch(url + "/rest/v1/rpc/" + r.name, { method: "POST", headers: h2, body: "{}" })
-      .then(function (res) {
-        if (res.status === 404) { mark(row, "bad", "404", "من " + r.from); missingFrom[r.from] = 1; }
-        else mark(row, "ok", "OK");
-      })
-      .catch(function () { mark(row, "warn", "NET"); }));
-  });
-
-  var permRow = add("جدول الصلاحيات مكتمل", "wait");
-  jobs.push(fetch(url + "/rest/v1/permissions?select=code", { headers: head })
-    .then(function (res) { return res.ok ? res.json() : null; })
-    .then(function (rows) {
-      if (!rows) { mark(permRow, "warn", "?", "تعذّرت القراءة"); return; }
-      var have = rows.map(function (r) { return r.code; });
-      var lack = EXPECTED_PERMS.filter(function (c) { return have.indexOf(c) === -1; });
-      if (!lack.length) { mark(permRow, "ok", "OK", have.length + " صلاحية"); }
-      else {
-        mark(permRow, "warn", "نقص", "ناقص: " + lack.join(", "));
-        warnings.push("صلاحيات ناقصة - شغّل 11_permission_cleanup.sql");
-      }
+  return fetch(url + "/rest/v1/", {
+      headers: { apikey: key, Authorization: "Bearer " + key,
+                 Accept: "application/openapi+json" }
     })
-    .catch(function () { mark(permRow, "warn", "NET"); }));
+    .then(function (res) { return res.ok ? res.json() : null; })
+    .then(function (spec) {
+      if (!spec || !spec.paths) {
+        mark(specRow, "warn", "?", "تعذّرت القراءة — تخطّي فحص قاعدة البيانات");
+        warnings.push("تعذّر فحص قاعدة البيانات");
+        return;
+      }
 
-  return Promise.all(jobs).then(function () {
-    var files = Object.keys(missingFrom);
-    if (files.length) problems.push("ملفات SQL لم تُشغَّل: " + files.join("، "));
-  });
+      var paths = Object.keys(spec.paths);
+      mark(specRow, "ok", "OK", paths.length + " مسار");
+
+      var missingFrom = {};
+
+      TABLES.forEach(function (t) {
+        var found = paths.indexOf("/" + t.name) > -1;
+        add("جدول " + t.name, found ? "ok" : "bad", found ? "OK" : "مفقود",
+            found ? "" : "من " + t.from);
+        if (!found) missingFrom[t.from] = 1;
+      });
+
+      RPCS.forEach(function (r) {
+        var found = paths.indexOf("/rpc/" + r.name) > -1;
+        add("دالة " + r.name, found ? "ok" : "bad", found ? "OK" : "مفقود",
+            found ? "" : "من " + r.from);
+        if (!found) missingFrom[r.from] = 1;
+      });
+
+      var files = Object.keys(missingFrom);
+      if (files.length) problems.push("ملفات SQL لم تُشغَّل: " + files.join("، "));
+
+      return fetch(url + "/rest/v1/permissions?select=code", { headers: head })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (rows) {
+          if (!rows) return;
+          var have = rows.map(function (r) { return r.code; });
+          var lack = EXPECTED_PERMS.filter(function (c) { return have.indexOf(c) === -1; });
+          add("جدول الصلاحيات مكتمل", lack.length ? "warn" : "ok",
+              lack.length ? "نقص" : "OK",
+              lack.length ? "ناقص: " + lack.join(", ") : have.length + " صلاحية");
+          if (lack.length) warnings.push("صلاحيات ناقصة — شغّل 11_permission_cleanup.sql");
+        })
+        .catch(function () {});
+    })
+    .catch(function () {
+      mark(specRow, "warn", "NET", "تعذّر الاتصال بقاعدة البيانات");
+      warnings.push("تعذّر الاتصال بقاعدة البيانات");
+    });
 }
 
 // ============================================================
