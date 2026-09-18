@@ -471,6 +471,42 @@ const EN = {
   "الحضور": "Presence",
   "لا أحد متصل": "Nobody online",
 
+  // ---------- نصوص مصدرها قاعدة البيانات ----------
+  // أسماء الصلاحيات وفئاتها مخزَّنة في جدول permissions، فتصل عربية
+  // من الخادم. هي نصوص نظام ثابتة لا بيانات مستخدمين، فتُترجَم هنا.
+  "إدارة الأصناف (إضافة وتعديل وأرشفة)": "Manage items (add, edit, archive)",
+  "تعديل الأسعار والتكاليف": "Edit prices and costs",
+  "فتح شاشة التسعير": "Open the pricing screen",
+  "تسجيل أذون الوارد والصرف": "Record goods-in and goods-out vouchers",
+  "حذف الأذون": "Delete vouchers",
+  "تنفيذ الجرد وترحيله": "Run and post stocktakes",
+  "فتح شاشة المحاسبة والمراجعة": "Open the accounting and review screen",
+  "قراءة سجل التدقيق": "Read the audit log",
+  "إدارة المستخدمين والأدوار": "Manage users and roles",
+  "رؤية المستخدمين المتصلين الآن": "See who is online now",
+  "قراءة سجل محاولات الدخول": "Read the sign-in log",
+  "مراجعة أذون الشراء ومطابقة الفواتير": "Review purchase vouchers and match invoices",
+  "حذف الأصناف نهائيًا": "Delete items permanently",
+  "حذف عمليات الجرد": "Delete stocktakes",
+  "الإدخال المباشر واستيراد البيانات": "Direct entry and data import",
+  "تعديل الإعدادات وعدّادات الأذون": "Edit settings and voucher counters",
+  "عام": "General",
+  "الإدارة": "Administration",
+  "المخزن": "Store",
+
+  // ---------- نصوص ظهرت بعد التجربة ----------
+  "الدخول": "Sign-ins",
+  "دور أساسي": "Built-in role",
+  "دور مخصّص": "Custom role",
+  "أنت": "You",
+  "نشط": "Active",
+  "موقوف": "Disabled",
+  "عرض السجل": "View log",
+  "اكتمال جدول الصلاحيات": "Permission table completeness",
+  "سيتم تسجيل الخروج تلقائيًا خلال": "You will be signed out automatically in",
+  "ثانية لحماية حسابك.": "seconds to protect your account.",
+  "لم يُسجَّل أي نشاط منذ فترة.": "No activity has been recorded for a while.",
+
   // ---------- الإعدادات ----------
   "حسابي": "My account",
   "تغيير كلمة المرور": "Change password",
@@ -646,7 +682,9 @@ function westernize(text) {
 //  3) لا نراقب characterData إطلاقًا: الشاشات تستبدل innerHTML، فرصد
 //     childList يكفي، ورصد النص يضاعف العمل بلا فائدة.
 // ============================================================
-const ATTRS = ["placeholder", "title", "aria-label", "alt"];
+// data-label ضرورية: على الموبايل تُرسم عناوين الكروت من هذه السمة عبر
+// CSS content: attr(data-label)، فلا تمرّ كعقدة نصية ولا تُترجَم بدونها
+const ATTRS = ["placeholder", "title", "aria-label", "alt", "data-label"];
 const SKIP_TAGS = { SCRIPT: 1, STYLE: 1, SVG: 1, CODE: 0 };
 
 const AR_RE = /[\u0600-\u06FF]/;
