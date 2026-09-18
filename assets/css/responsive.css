@@ -16,10 +16,46 @@
    ------------------------------------------------------------ */
 html { font-size: calc(16px * var(--ui-scale, 1)); }
 
-#btnScale {
-  font-family: var(--sans);
+/* زر التكبير: أيقونة عدسة، وشارة بالنسبة تظهر فقط عند تجاوز الحجم
+   العادي — فلا تشغل مساحة ولا انتباهًا في الحالة الافتراضية */
+.zoom-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  flex: none;
+}
+
+.zoom-btn:hover { background: var(--brand-tint); color: var(--brand); }
+.zoom-btn:active { transform: scale(.94); }
+
+.zoom-btn svg {
+  width: 19px; height: 19px;
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+
+.zoom-badge {
+  position: absolute;
+  inset-block-start: -7px;
+  inset-inline-end: -7px;
+  background: var(--brand);
+  color: #fff;
+  font-size: .58rem;
   font-weight: 600;
-  min-width: 42px;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 9px;
+  font-family: var(--mono);
+  direction: ltr;
 }
 
 /* ============================================================
@@ -205,3 +241,30 @@ html { font-size: calc(16px * var(--ui-scale, 1)); }
 @media print {
   #bottomNav, #btnScale, #updateBar { display: none !important; }
 }
+
+/* ------------------------------------------------------------
+   زر اللغة: يعرض اللغة التي سينتقل إليها لا التي نحن فيها،
+   فالمستخدم يقرأ ما سيحصل عليه لا ما هو فيه بالفعل.
+   ------------------------------------------------------------ */
+.lang-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 38px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--text);
+  font: 600 .78rem/1 var(--sans);
+  cursor: pointer;
+  flex: none;
+}
+
+.lang-btn:hover { background: var(--brand-tint); color: var(--brand); }
+.lang-btn:active { transform: scale(.94); }
+
+/* في الإنجليزية: الأرقام والأكواد بخط أحادي المسافة بلا انعكاس */
+html.lang-en .code,
+html.lang-en .num { direction: ltr; }
