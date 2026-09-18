@@ -6,6 +6,25 @@ import { db, run } from "./client.js";
 import { APP } from "../config.js";
 
 /* ------------------------- الأصناف ------------------------- */
+/**
+ * تنظيف نصّ البحث قبل وضعه داخل مرشّح PostgREST.
+ *
+ * `.or("col.ilike.%نص%,col2.ilike.%نص%")` تُبنى بالنصّ، فالفاصلة والنقطة
+ * والقوس في مدخلات المستخدم أحرفٌ لها معنى في صيغة المرشّح لا حروف بحث.
+ * بحثٌ مثل `x,role.eq.admin` يُضيف شرطًا لم نكتبه نحن.
+ *
+ * RLS تمنع قراءة ما لا يُسمح به مهما كان الشرط، فهذا ليس تسريبًا —
+ * لكنه يسمح بتوسيع النتائج داخل الجدول نفسه وبإسقاط الاستعلام بخطأ.
+ * نزيل الأحرف ذات المعنى ونُبقي البحث بحثًا.
+ */
+function safeSearch(text) {
+  return String(text || "")
+    .replace(/[,()*%\\'"`:.]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 60);
+}
+
 export const items = {
   async list({ includeArchived = false } = {}) {
     let q = db().from("items").select("*").order("code");
@@ -50,7 +69,7 @@ export const txns = {
   async list({ type = "", itemId = "", project = "", from = "", to = "", search = "",
                 page = 0, size = APP.logPageSize } = {}) {
     let q = db().from("transactions")
-      .select("*", { count: "exact" })
+      .select("*", { count: "planned" })
       .order("txn_date", { ascending: false })
       .order("created_at", { ascending: false })
       .range(page * size, page * size + size - 1);
@@ -60,7 +79,10 @@ export const txns = {
     if (project) q = q.eq("project", project);
     if (from)    q = q.gte("txn_date", from);
     if (to)      q = q.lte("txn_date", to);
-    if (search)  q = q.or(`voucher_no.ilike.%${search}%,item_name.ilike.%${search}%,party.ilike.%${search}%`);
+    const term = safeSearch(search);
+    if (term) {
+      q = q.or(`voucher_no.ilike.%${term}%,item_name.ilike.%${term}%,party.ilike.%${term}%`);
+    }
 
     const { data, error, count } = await q;
     if (error) throw error;
@@ -162,7 +184,11 @@ export const lists = {
 };
 
 export const users = {
-  list() { return run(db().from("profiles").select("*").order("full_name")); },
+  list() {
+    return run(db().from("profiles")
+      .select("id,username,full_name,role,is_active,last_seen")
+      .order("full_name"));
+  },
   updateRole(id, role) { return run(db().from("profiles").update({ role }).eq("id", id).select().single()); },
   setActive(id, is_active) { return run(db().from("profiles").update({ is_active }).eq("id", id).select().single()); },
 };
@@ -218,13 +244,15 @@ export const settings = {
   },
 };
 
+
+
 /* ------------------------- سجل التدقيق ------------------------- */
 export const audit = {
   /** سجل التعديلات — من فعل ماذا ومتى. الترشيح والترقيم على الخادم. */
   async list({ action = "", entity = "", actor = "", from = "", to = "",
                search = "", page = 0, size = 100 } = {}) {
     let q = db().from("audit_log")
-      .select("*", { count: "exact" })
+      .select("*", { count: "planned" })
       .order("at", { ascending: false })
       .range(page * size, page * size + size - 1);
 
@@ -233,7 +261,8 @@ export const audit = {
     if (actor)  q = q.eq("actor", actor);
     if (from)   q = q.gte("at", `${from}T00:00:00`);
     if (to)     q = q.lte("at", `${to}T23:59:59`);
-    if (search) q = q.or(`entity_id.ilike.%${search}%,actor_name.ilike.%${search}%`);
+    const term = safeSearch(search);
+    if (term) q = q.or(`entity_id.ilike.%${term}%,actor_name.ilike.%${term}%`);
 
     const { data, error, count } = await q;
     if (error) throw error;
@@ -244,7 +273,7 @@ export const audit = {
   async authEvents({ event = "", username = "", from = "", to = "",
                      page = 0, size = 100 } = {}) {
     let q = db().from("auth_events")
-      .select("*", { count: "exact" })
+      .select("*", { count: "planned" })
       .order("created_at", { ascending: false })
       .range(page * size, page * size + size - 1);
 
