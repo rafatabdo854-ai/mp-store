@@ -1,0 +1,207 @@
+/* ============================================================
+   طبقة الاستجابة — تُحمَّل بعد main.css فتغلب عليه عند التعارض.
+
+   ثلاثة أشياء:
+     1) الجداول تصير كروتًا على الشاشات الضيّقة
+     2) شريط تنقّل سفلي يصله الإبهام بيد واحدة
+     3) مقياس خط يكبّر كل شيء دفعة واحدة
+
+   لا شيء هنا يغيّر شكل الكمبيوتر — كله داخل استعلامات وسائط.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   مقياس الخط: يضربه المستخدم من زر "أ+" في الشريط العلوي.
+   كل المقاسات في النظام بـ rem، فتغيير جذر الصفحة يكبّر كل شيء
+   معًا — النص والحشو والأزرار — بدل أن يكبر النص وحده فيتزاحم.
+   ------------------------------------------------------------ */
+html { font-size: calc(16px * var(--ui-scale, 1)); }
+
+#btnScale {
+  font-family: var(--sans);
+  font-weight: 600;
+  min-width: 42px;
+}
+
+/* ============================================================
+   1) الجداول ككروت — تحت 760 بكسل
+   ============================================================ */
+@media (max-width: 760px) {
+
+  .table-wrap { overflow: visible; border: 0; }
+
+  .table-wrap table,
+  .table-wrap tbody,
+  .table-wrap tr,
+  .table-wrap td { display: block; width: 100%; }
+
+  /* الرؤوس تُخفى: قيمتها انتقلت إلى data-label في كل خلية */
+  .table-wrap thead { position: absolute; width: 1px; height: 1px;
+                      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  .table-wrap tr {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow);
+    margin-bottom: 10px;
+    padding: 10px 12px;
+  }
+
+  .table-wrap td {
+    border: 0;
+    padding: 5px 0;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    text-align: start;
+    min-height: 0;
+  }
+
+  .table-wrap td::before {
+    content: attr(data-label);
+    flex: 0 0 38%;
+    color: var(--text-mute);
+    font-size: .78rem;
+    font-weight: 500;
+  }
+
+  /* الخلية الأولى عنوان الكرت: بلا مُسمّى، وبحجم يُقرأ من مسافة ذراع */
+  .table-wrap td[data-first]::before { display: none; }
+  .table-wrap td[data-first] {
+    font-size: 1.02rem;
+    font-weight: 600;
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  /* الأرقام تُقرأ لا تُفحَص: الرصيد والكمية أكبر من بقية السطور */
+  .table-wrap td.num { font-family: var(--mono); font-size: 1rem; font-weight: 600; }
+
+  /* خلية بلا محتوى تختفي بدل أن تترك مُسمّى معلّقًا */
+  .table-wrap td:empty { display: none; }
+
+  /* أزرار الإجراءات تملأ عرض الكرت — هدف لمس لا هدف فأرة */
+  .table-wrap td[data-actions] { flex-wrap: wrap; gap: 8px; padding-top: 10px; }
+  .table-wrap td[data-actions]::before { display: none; }
+  .table-wrap td[data-actions] .btn { flex: 1 1 auto; min-height: 40px; }
+
+  .table-wrap td.empty { justify-content: center; color: var(--text-mute); }
+  .table-wrap td.empty::before { display: none; }
+
+  /* صف الإجمالي يبقى صفًا: هو ملخّص لا سجلّ */
+  .table-wrap tfoot tr { background: var(--brand-tint); font-weight: 600; }
+
+  /* حقول الإدخال داخل الكروت تأخذ العرض كاملًا */
+  .table-wrap td input,
+  .table-wrap td select { width: 100%; min-height: 40px; }
+
+  /* أهداف اللمس: 44 بكسل هو الحد الذي يُصيبه الإصبع دون تدقيق */
+  .btn, select, input[type="date"], input[type="search"] { min-height: 42px; }
+
+  .toolbar { gap: 8px; }
+  .toolbar input, .toolbar select { flex: 1 1 140px; }
+}
+
+/* ============================================================
+   2) الشريط السفلي — الوصول بيد واحدة
+   ============================================================ */
+#bottomNav { display: none; }
+
+@media (max-width: 860px) {
+  #bottomNav {
+    display: flex;
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 60;
+    background: var(--card);
+    border-top: 1px solid var(--line);
+    /* padding-bottom يحترم شريط الإيماءات في أندرويد وiOS */
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    box-shadow: 0 -2px 14px rgba(20, 35, 60, .08);
+  }
+
+  #bottomNav button {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 8px 4px 7px;
+    border: 0;
+    background: none;
+    color: var(--text-mute);
+    font: inherit;
+    font-size: .68rem;
+    cursor: pointer;
+    min-height: 56px;
+  }
+
+  #bottomNav button svg {
+    width: 21px; height: 21px;
+    fill: none; stroke: currentColor; stroke-width: 1.7;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+
+  #bottomNav button.active { color: var(--brand); }
+  #bottomNav button.active svg { stroke-width: 2.1; }
+
+  /* مساحة أسفل الصفحة حتى لا يغطّي الشريط آخر صف */
+  main { padding-bottom: 74px; }
+
+  /* الشريط السفلي يغني عن زر القائمة إلا لبقية الشاشات */
+  .content footer { padding-bottom: 80px; }
+}
+
+/* ============================================================
+   3) الإذن كالورقة + رقم الإذن بعد الحفظ
+   ============================================================ */
+
+/* رأس الإذن: صندوق كالنموذج المطبوع بدل حقول متناثرة */
+.voucher-head {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  background: var(--paper);
+  margin-bottom: 14px;
+}
+
+/* إيصال ما بعد الحفظ: رقم الإذن كبير لأنه ما يكتبه أمين المخزن
+   على الورقة ويحتفظ به — هو إثبات العملية لا مجرد إشعار نجاح */
+.receipt { text-align: center; padding: 6px 0 2px; }
+
+.receipt .no {
+  font-family: var(--mono);
+  font-size: 2.1rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  direction: ltr;
+  margin: 10px 0 6px;
+  color: var(--brand);
+}
+
+.receipt .no[data-type="out"] { color: var(--out); }
+
+.receipt .meta {
+  color: var(--text-mute);
+  font-size: .86rem;
+  margin-bottom: 4px;
+}
+
+.receipt .stamp {
+  display: inline-block;
+  border: 2px solid var(--ok);
+  color: var(--ok);
+  border-radius: 6px;
+  padding: 3px 12px;
+  font-weight: 600;
+  font-size: .82rem;
+  transform: rotate(-3deg);
+  margin-bottom: 8px;
+}
+
+@media print {
+  #bottomNav, #btnScale, #updateBar { display: none !important; }
+}
