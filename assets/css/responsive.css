@@ -268,3 +268,33 @@ html { font-size: calc(16px * var(--ui-scale, 1)); }
 /* في الإنجليزية: الأرقام والأكواد بخط أحادي المسافة بلا انعكاس */
 html.lang-en .code,
 html.lang-en .num { direction: ltr; }
+
+/* ============================================================
+   تصحيحات الاتجاه في الوضع الإنجليزي
+   ============================================================ */
+
+/* القائمة الجانبية تُخفى بـ translateX(100%) في main.css — وهي إزاحة
+   فيزيائية لا تعرف اتجاه الصفحة. في العربية القائمة على اليمين فتخرج
+   من الشاشة؛ وفي الإنجليزية صارت على اليسار، فالإزاحة نفسها تدفعها
+   إلى داخل الصفحة بدل أن تخفيها.
+   الحل: اعكس الاتجاه حين يكون اتجاه الصفحة ltr. */
+@media (max-width: 1000px) {
+  html[dir="ltr"] .sidebar { transform: translateX(-100%); }
+  html[dir="ltr"] body.nav-open .sidebar { transform: translateX(0); }
+}
+
+/* الشريط العلوي يضيق بالإنجليزية لأن كلماتها أطول: نسمح بالالتفاف
+   ونمنع الأزرار من الانكماش حتى لا يختفي زر التكبير خلف حافة الشاشة */
+.topbar { flex-wrap: wrap; row-gap: 6px; }
+.topbar .zoom-btn,
+.topbar .lang-btn,
+.topbar #btnRefresh { flex: none; }
+
+/* شارة الاتصال تُقصّ في الإنجليزية: نصّها أطول من العربي */
+.conn { white-space: nowrap; }
+@media (max-width: 520px) {
+  html.lang-en .conn .conn-text { display: none; }
+}
+
+/* الأرقام والأكواد تبقى بالاتجاه اللاتيني في اللغتين */
+.code, .num, input[type="date"] { direction: ltr; }
