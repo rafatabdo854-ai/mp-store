@@ -89,20 +89,30 @@ var GROUPS = [
 ];
 
 // دوال قاعدة البيانات ومصدر كل واحدة
+var PROBE_DATE = "1900-01-01";   // نطاق فارغ: الدوال القارئة تعود بلا صفوف
+
 var RPCS = [
-  { name: "create_voucher",        from: "02_functions.sql" },
-  { name: "dashboard_summary",     from: "02_functions.sql" },
-  { name: "recalc_balances",       from: "02_functions.sql" },
-  { name: "valuation_report",      from: "05_accounting.sql" },
-  { name: "purchase_vouchers",     from: "05_accounting.sql" },
-  { name: "dashboard_insights",    from: "05_accounting.sql" },
-  { name: "recalc_avg_cost",       from: "05_accounting.sql" },
-  { name: "is_locked",             from: "06_login_guard.sql" },
-  { name: "register_failed_login", from: "06_login_guard.sql" },
-  { name: "my_permissions",        from: "09_permissions.sql" },
-  { name: "admin_capable_count",   from: "09_permissions.sql" },
-  { name: "touch_last_seen",       from: "10_presence.sql" },
-  { name: "active_users",          from: "10_presence.sql" }
+  // النداء هنا للفحص فقط. الدوال الكاتبة تتحقّق من الصلاحية أولًا فترفض
+  // قبل أن تكتب شيئًا، والقارئة تُنادى بنطاق تاريخ فارغ.
+  { name: "create_voucher", from: "02_functions.sql",
+    args: { p_type: "probe", p_date: PROBE_DATE, p_party: "", p_project: "",
+            p_notes: "", p_lines: [] } },
+  { name: "dashboard_summary",  from: "02_functions.sql", args: {} },
+  { name: "recalc_balances",    from: "02_functions.sql", args: {} },
+  { name: "valuation_report",   from: "05_accounting.sql",
+    args: { p_from: PROBE_DATE, p_to: PROBE_DATE } },
+  { name: "purchase_vouchers",  from: "05_accounting.sql",
+    args: { p_from: PROBE_DATE, p_to: PROBE_DATE } },
+  { name: "dashboard_insights", from: "05_accounting.sql", args: { p_days: 1 } },
+  { name: "recalc_avg_cost",    from: "05_accounting.sql", args: {} },
+  { name: "is_locked",          from: "06_login_guard.sql",
+    args: { p_username: "__probe__" } },
+  { name: "register_failed_login", from: "06_login_guard.sql",
+    args: { p_username: "__probe__" } },
+  { name: "my_permissions",      from: "09_permissions.sql", args: {} },
+  { name: "admin_capable_count", from: "09_permissions.sql", args: {} },
+  { name: "touch_last_seen",     from: "10_presence.sql", args: {} },
+  { name: "active_users",        from: "10_presence.sql", args: { p_minutes: 1 } }
 ];
 
 var TABLES = [
@@ -349,9 +359,9 @@ function checkDatabase() {
     .then(function (res) { return res.ok ? res.json() : null; })
     .then(function (spec) {
       if (!spec || !spec.paths) {
-        mark(specRow, "warn", "?", "تعذّرت القراءة — تخطّي فحص قاعدة البيانات");
-        warnings.push("تعذّر فحص قاعدة البيانات");
-        return;
+        // فهرس OpenAPI غير منشور لهذا المشروع — نسأل عن كل كائن على حدة
+        mark(specRow, "warn", "بديل", "الفهرس غير متاح — فحص مباشر");
+        return probeEach(url, key, token, head);
       }
 
       var paths = Object.keys(spec.paths);
@@ -399,9 +409,45 @@ function checkDatabase() {
         .catch(function () {});
     })
     .catch(function () {
-      mark(specRow, "warn", "NET", "تعذّر الاتصال بقاعدة البيانات");
-      warnings.push("تعذّر الاتصال بقاعدة البيانات");
+      mark(specRow, "warn", "بديل", "الفهرس غير متاح — فحص مباشر");
+      return probeEach(url, key, token, head);
     });
+}
+
+// الفحص المباشر: 404 وحدها تعني غير موجود. أي ردّ آخر — بما فيه رفض
+// الصلاحية — يعني أن الكائن موجود، وهو كل ما نريد معرفته هنا.
+function probeEach(url, key, token, head) {
+  var missingFrom = {};
+  var jobs = [];
+
+  TABLES.forEach(function (t) {
+    var row = add("جدول " + t.name, "wait");
+    jobs.push(fetch(url + "/rest/v1/" + t.name + "?select=*&limit=1", { headers: head })
+      .then(function (res) {
+        if (res.status === 404) { mark(row, "bad", "مفقود", "من " + t.from); missingFrom[t.from] = 1; }
+        else mark(row, "ok", "OK");
+      })
+      .catch(function () { mark(row, "warn", "NET"); }));
+  });
+
+  RPCS.forEach(function (r) {
+    var row = add("دالة " + r.name, "wait");
+    var h2 = { apikey: key, Authorization: "Bearer " + token,
+               "Content-Type": "application/json" };
+    jobs.push(fetch(url + "/rest/v1/rpc/" + r.name, {
+        method: "POST", headers: h2, body: JSON.stringify(r.args || {})
+      })
+      .then(function (res) {
+        if (res.status === 404) { mark(row, "bad", "مفقود", "من " + r.from); missingFrom[r.from] = 1; }
+        else mark(row, "ok", "OK");
+      })
+      .catch(function () { mark(row, "warn", "NET"); }));
+  });
+
+  return Promise.all(jobs).then(function () {
+    var files = Object.keys(missingFrom);
+    if (files.length) problems.push("ملفات SQL لم تُشغَّل: " + files.join("، "));
+  });
 }
 
 // ============================================================
