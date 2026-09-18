@@ -8,6 +8,7 @@ import { startRealtime, watchNetwork, onTxnChange } from "./data/realtime.js";
 import { startPresence, stopPresence } from "./core/presence.js";
 import { startUpdateWatch } from "./core/updates.js";
 import { startResponsive } from "./core/responsive.js";
+import { startI18n } from "./core/i18n.js";
 import { restoreSession, signOut, currentUser } from "./auth/auth.js";
 import { startSessionGuard, stopSessionGuard, isSessionStale, markExpiry, takeExpiryReason } from "./auth/session-guard.js";
 import { mountLogin } from "./auth/login.js";
@@ -129,6 +130,7 @@ async function boot(profile) {
   wireChrome();
   // بعد wireChrome: الشريط السفلي يُبنى من أزرار القائمة بعد ضبط صلاحياتها
   startResponsive();
+  startI18n();
 
   // عرض فوري من النسخة المحلية ثم تحديثها من الخادم
   const hadCache = loadCache();
