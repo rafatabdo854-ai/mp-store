@@ -632,42 +632,103 @@ function westernize(text) {
 
 // ============================================================
 //  الترجمة على الصفحة
+//
+//  ثلاثة قيود تحكم هذا الجزء، وتجاهل أيّها يُجمّد الواجهة:
+//
+//  1) الترجمة تعدّل الصفحة، والمراقب يرصد التعديلات. بلا حاجز
+//     تُغذّي الترجمةُ المراقبَ فيعيد استدعاءها بلا نهاية.
+//     لذلك نوقف المراقب أثناء الترجمة ونعيده بعدها.
+//
+//  2) الشاشات تُعيد رسم جداول كاملة دفعة واحدة، فتصل مئات الإشعارات
+//     في أجزاء من الثانية. نجمعها في طابور ونعالجها مرة واحدة عند
+//     الإطار التالي بدل مرة لكل عقدة.
+//
+//  3) لا نراقب characterData إطلاقًا: الشاشات تستبدل innerHTML، فرصد
+//     childList يكفي، ورصد النص يضاعف العمل بلا فائدة.
 // ============================================================
 const ATTRS = ["placeholder", "title", "aria-label", "alt"];
+const SKIP_TAGS = { SCRIPT: 1, STYLE: 1, SVG: 1, CODE: 0 };
 
-function translateNode(node) {
-  if (node.nodeType === 3) {
-    const original = node.__ar !== undefined ? node.__ar : node.nodeValue;
-    if (!/[\u0600-\u06FF]/.test(original)) return;
-    node.__ar = original;
+const AR_RE = /[\u0600-\u06FF]/;
 
-    if (lang === "ar") { node.nodeValue = original; return; }
+let observer = null;
+let queue = [];
+let scheduled = false;
 
-    // المسافات حول النص جزء من التخطيط، فنترجم اللبّ ونعيده بين مسافاته
-    const lead = original.match(/^\s*/)[0];
-    const tail = original.match(/\s*$/)[0];
-    node.nodeValue = lead + westernize(t(original.trim())) + tail;
+function translateText(node) {
+  const original = node.__ar !== undefined ? node.__ar : node.nodeValue;
+  if (!AR_RE.test(original)) return;
+  node.__ar = original;
+
+  if (lang === "ar") {
+    if (node.nodeValue !== original) node.nodeValue = original;
     return;
   }
 
-  if (node.nodeType !== 1) return;
+  // المسافات حول النص جزء من التخطيط: نترجم اللبّ ونعيده بين مسافاته
+  const core = original.trim();
+  const lead = original.slice(0, original.indexOf(core));
+  const tail = original.slice(original.indexOf(core) + core.length);
+  const next = lead + westernize(t(core)) + tail;
+  if (node.nodeValue !== next) node.nodeValue = next;
+}
 
-  ATTRS.forEach((attr) => {
-    if (!node.hasAttribute(attr)) return;
+function translateAttrs(el) {
+  for (let i = 0; i < ATTRS.length; i++) {
+    const attr = ATTRS[i];
+    if (!el.hasAttribute(attr)) continue;
     const store = "__ar_" + attr;
-    const original = node[store] !== undefined ? node[store] : node.getAttribute(attr);
-    if (!/[\u0600-\u06FF]/.test(original)) return;
-    node[store] = original;
-    node.setAttribute(attr, lang === "ar" ? original : westernize(t(original)));
-  });
+    const original = el[store] !== undefined ? el[store] : el.getAttribute(attr);
+    if (!AR_RE.test(original)) continue;
+    el[store] = original;
+    const next = lang === "ar" ? original : westernize(t(original));
+    if (el.getAttribute(attr) !== next) el.setAttribute(attr, next);
+  }
 }
 
 export function translateTree(root) {
   if (!root) return;
-  translateNode(root);
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+
+  if (root.nodeType === 3) { translateText(root); return; }
+  if (root.nodeType !== 1) return;
+  if (SKIP_TAGS[root.tagName]) return;
+
+  translateAttrs(root);
+
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
+    acceptNode(node) {
+      if (node.nodeType === 1 && SKIP_TAGS[node.tagName]) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+
   let node;
-  while ((node = walker.nextNode())) translateNode(node);
+  while ((node = walker.nextNode())) {
+    if (node.nodeType === 3) translateText(node);
+    else translateAttrs(node);
+  }
+}
+
+/** ترجمة محمية: يُوقف المراقب حتى لا ترصد الترجمةُ نفسَها. */
+function translateGuarded(nodes) {
+  if (observer) observer.disconnect();
+  try {
+    for (let i = 0; i < nodes.length; i++) translateTree(nodes[i]);
+  } finally {
+    if (observer) observe();
+  }
+}
+
+function observe() {
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+function flush() {
+  scheduled = false;
+  const batch = queue;
+  queue = [];
+  if (!batch.length || lang === "ar") return;
+  translateGuarded(batch);
 }
 
 // ============================================================
@@ -682,7 +743,8 @@ export function setLang(next) {
   html.setAttribute("dir", lang === "ar" ? "rtl" : "ltr");
   html.classList.toggle("lang-en", lang === "en");
 
-  translateTree(document.body);
+  queue = [];
+  translateGuarded([document.body]);
   paintButton();
 }
 
@@ -691,19 +753,21 @@ export function startI18n() {
   try { saved = localStorage.getItem(LS_LANG) || "ar"; } catch (e) {}
 
   mountButton();
-  setLang(saved);
 
-  // الشاشات تُعيد الرسم عند كل تحديث، فالترجمة تحتاج متابعة مستمرة
-  const observer = new MutationObserver((records) => {
+  observer = new MutationObserver((records) => {
     if (lang === "ar") return;
-    for (const record of records) {
-      record.addedNodes.forEach((n) => translateTree(n));
-      if (record.type === "characterData") translateNode(record.target);
+    for (let i = 0; i < records.length; i++) {
+      const added = records[i].addedNodes;
+      for (let j = 0; j < added.length; j++) queue.push(added[j]);
+    }
+    if (queue.length && !scheduled) {
+      scheduled = true;
+      requestAnimationFrame(flush);
     }
   });
-  observer.observe(document.body, {
-    childList: true, subtree: true, characterData: true,
-  });
+
+  setLang(saved);
+  observe();
 
   // ما لم يُترجَم بعد — للاستكمال التدريجي
   window.mpMissing = () => {
