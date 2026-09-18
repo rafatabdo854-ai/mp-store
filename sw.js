@@ -9,7 +9,7 @@
  * عند تعديل أي ملف في src/ أو assets/: ارفع رقم CACHE_VERSION — وإلا بقي
  * المستخدمون على النسخة القديمة حتى تنتهي صلاحية الملف في المتصفح.
  */
-const CACHE_VERSION = "v10.8.0";
+const CACHE_VERSION = "v10.9.0";
 const SHELL_CACHE = `mpstore-shell-${CACHE_VERSION}`;
 const CDN_CACHE   = `mpstore-cdn-${CACHE_VERSION}`;
 
@@ -22,6 +22,7 @@ const SHELL = [
   "./assets/css/main.css",
   "./assets/css/login.css",
   "./assets/css/print.css",
+  "./assets/css/responsive.css",
 
   "./assets/img/logo.png",
   "./assets/img/icon-192.png",
@@ -34,6 +35,7 @@ const SHELL = [
   "./src/core/dom.js",
   "./src/core/format.js",
   "./src/core/presence.js",
+  "./src/core/responsive.js",
   "./src/core/store.js",
   "./src/core/updates.js",
   "./src/core/ui.js",
