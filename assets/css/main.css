@@ -719,10 +719,38 @@ tr.click:hover { background: var(--brand-tint); }
   background: var(--line-soft); border: 1px solid var(--line); color: var(--text);
 }
 
-.about { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-.about > div {
-  display: flex; flex-direction: column; gap: 2px;
-  padding: 10px 12px; background: var(--line-soft); border-radius: 9px;
+/* "عن النظام": لوحة البيانات المعدنية.
+   كان خمسة مستطيلات رمادية فوق بعضها على الهاتف تشبه حقول إدخال
+   معطّلة. وهذا المكان تحديدًا هو الموضع الصادق للمعالجة الداكنة في
+   النظام كله: كل جهاز كهربائي يحمل لوحة بيانات محفورة تقول من صنعه
+   وأي إصدار هو — وهذه هي بالضبط. */
+.about {
+  position: relative;
+  display: grid; gap: 0;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  background: linear-gradient(160deg, #1D3F4C 0%, #16323C 55%, #112831 100%);
+  border: 1px solid rgba(160, 200, 212, .22);
+  border-radius: var(--radius-sm);
+  padding: 6px 4px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .09), 0 2px 8px -4px rgba(11, 32, 41, .55);
 }
-.about span { font-size: .72rem; color: var(--text-mute); }
-.about b { font-size: .86rem; font-weight: 600; }
+.about > div {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 12px 18px; background: none; border-radius: 0;
+}
+.about > div + div { box-shadow: inset 1px 0 0 rgba(160, 200, 212, .13); }
+.about span { font-size: .68rem; color: #86A6B0; letter-spacing: .02em; }
+.about b { font-size: .86rem; font-weight: 600; color: #DCEAEE; }
+.about b.code { font-family: var(--mono); color: #C9DDE3; direction: ltr; }
+
+/* مسامير التثبيت في الأركان الأربعة — نفس مسامير شاشة الدخول */
+.about::before, .about::after {
+  content: ""; position: absolute; inset-inline: 7px; height: 9px;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-image:
+    radial-gradient(circle at 4.5px 4.5px, #8FA7AF 0 2px, #4B6470 2px 3.8px, transparent 3.9px),
+    radial-gradient(circle at calc(100% - 4.5px) 4.5px, #8FA7AF 0 2px, #4B6470 2px 3.8px, transparent 3.9px);
+}
+.about::before { top: 7px; }
+.about::after  { bottom: 7px; }
