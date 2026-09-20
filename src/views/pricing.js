@@ -1,6 +1,6 @@
 /** التسعير وقيمة المخزون — متاح للمحاسب والمدير ونائبه. */
 import { byId, esc, fillTable, debounce } from "../core/dom.js";
-import { fmtNum, fmtMoney, itemLabel, arSort, toNum } from "../core/format.js";
+import { fmtNum, fmtMoney, moneyHtml, itemLabel, arSort, toNum } from "../core/format.js";
 import { get, set } from "../core/store.js";
 import { items as itemsRepo } from "../data/repo.js";
 import { can } from "../auth/roles.js";
@@ -103,11 +103,31 @@ const toRow = (i) => ({
 
 function paint() {
   const list = rows();
-  const unpriced = list.filter((i) => Number(i.unit_price) === 0).length;
+  const priced = list.filter((i) => Number(i.unit_price) > 0).length;
+  const done = list.length > 0 && priced === list.length;
+  // نسبة صغيرة غير صفرية تُبقي خيط اللون ظاهرًا، فيُقرأ الشريط كشريط
+  // تقدّم بدأ فعلًا لا كخط فارغ لا معنى له
+  const pct = list.length ? Math.max(1.5, (priced / list.length) * 100) : 0;
+
+  // "مُسعَّر" بدل "بلا سعر": العدّاد الذي يرتفع أثناء العمل يدلّ على
+  // التقدّم، والعدّاد الذي ينخفض يقيس ما تبقّى من العبء
   byId("prCards").innerHTML = `
-    <div class="stat money"><div class="label">قيمة المخزون المعروض</div><div class="value">${fmtMoney(total())}</div></div>
-    <div class="stat"><div class="label">عدد الأصناف</div><div class="value">${fmtNum(list.length)}</div></div>
-    <div class="stat warn"><div class="label">أصناف بلا سعر</div><div class="value">${fmtNum(unpriced)}</div></div>`;
+    <div class="stat money">
+      <div class="label">قيمة المخزون المعروض</div>
+      <div class="value">${moneyHtml(total(), { blankWhenZero: true })}</div>
+    </div>
+    <div class="stat">
+      <div class="label">عدد الأصناف</div>
+      <div class="value">${fmtNum(list.length)}</div>
+    </div>
+    <div class="stat${done ? "" : " warn"}">
+      <div class="label">مُسعَّر</div>
+      <div class="value">${fmtNum(priced)}</div>
+    </div>
+    <div class="stat-progress">
+      <div class="progress ${done ? "ok" : "warn"}"><i style="width:${pct.toFixed(1)}%"></i></div>
+      <span class="count">${fmtNum(priced)} / ${fmtNum(list.length)}</span>
+    </div>`;
 
   const editable = can("edit_price");
   fillTable(byId("prBody"), list.map((i) => `
@@ -118,12 +138,12 @@ function paint() {
       <td>${editable
         ? `<input type="number" min="0" step="0.01" style="max-width:120px"
              data-price-field="base_price" data-id="${esc(i.id)}" value="${Number(i.base_price)}">`
-        : fmtMoney(i.base_price)}</td>
+        : moneyHtml(i.base_price, { blankWhenZero: true })}</td>
       <td>${editable
         ? `<input type="number" min="0" step="0.01" style="max-width:120px"
              data-price-field="extra_costs" data-id="${esc(i.id)}" value="${Number(i.extra_costs)}">`
-        : fmtMoney(i.extra_costs)}</td>
-      <td class="num">${fmtMoney(i.unit_price)}</td>
-      <td class="num">${fmtMoney(Number(i.unit_price) * i.balance)}</td>
+        : moneyHtml(i.extra_costs, { blankWhenZero: true })}</td>
+      <td class="num">${moneyHtml(i.unit_price, { blankWhenZero: true })}</td>
+      <td class="num">${moneyHtml(Number(i.unit_price) * i.balance, { blankWhenZero: true })}</td>
     </tr>`), 7, "لا توجد أصناف");
 }
