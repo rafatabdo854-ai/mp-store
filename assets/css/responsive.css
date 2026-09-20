@@ -157,6 +157,28 @@ html { font-size: calc(16px * var(--ui-scale, 1)); }
   /* خلية الأزرار تبقى سطرًا كاملًا مهما كان ما بداخلها */
   .table-wrap td[data-actions] { flex: 1 1 100%; }
 
+  /* خليّتان رقميّتان متجاورتان تتقاسمان السطر؛ والخليّة الرقمية
+     الوحيدة تتمدّد وحدها لأن flex-grow يملأ ما تبقّى. فينزل كرت
+     التسعير من ثلاثة أسطر أرقام إلى سطرين. */
+  .table-wrap td.num { flex: 1 1 calc(50% - 4px); }
+
+  /* مربّع الاختيار يبقى بحجمه، والمُسمّى يأخذ بقية السطر */
+  .table-wrap td:has(> input[type="checkbox"]) { align-items: center; }
+  .table-wrap td input[type="checkbox"],
+  .table-wrap td input[type="radio"] { width: 20px; min-height: 20px; }
+
+  /* اللوح على الهاتف: الحشو الداخلي كان مصمَّمًا لشاشة عريضة */
+  .panel { padding: 13px; margin-bottom: 12px; }
+  .panel > h2, .panel-head h2 { font-size: .95rem; }
+  .hint { font-size: .74rem; line-height: 1.45; margin: 2px 0; }
+
+  /* شارة الاتصال في حالتها الطبيعية لا تحمل معلومة: تُختصر إلى لمبة
+     خضراء ويُفرَج عن نحو 140 بكسل تمنع الشريط العلوي من الالتفاف
+     إلى سطر ثانٍ. تعود بنصّها كاملًا حين ينقطع الاتصال أو يتأخّر. */
+  .conn[data-state="online"] .conn-text { display: none; }
+  .conn[data-state="online"] { padding: 5px 8px; }
+  .topbar #btnRefresh { padding: 0 11px; min-height: 38px; font-size: .8rem; }
+
   /* الأرقام تُقرأ لا تُفحَص: الرصيد والكمية أكبر من بقية السطور */
   .table-wrap td.num { font-family: var(--mono); font-size: 1rem; font-weight: 600; }
 
