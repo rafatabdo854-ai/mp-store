@@ -35,6 +35,38 @@ export function fmtMoney(value) {
   return `${fmtNum(value, 2)} ${currency()}`;
 }
 
+/** ما يُعرض مكان قيمة لم تُدخل بعد. */
+export const EMPTY = "—";
+
+/**
+ * مبلغ للعرض داخل الواجهة: الرقم أحادي المسافة والوحدة أصغر ومكتومة.
+ *
+ * `blankWhenZero` للأعمدة التي يكون فيها الصفر معناه "لم نُدخل السعر"
+ * لا "السعر صفر" — التسعير وقيمة الرصيد. الخلط بين الحالتين يجعل
+ * تقرير قيمة المخزون يبدو صحيحًا وهو ناقص.
+ *
+ * تُعيد HTML، فتُستعمل داخل قالب لا مع textContent.
+ */
+export function moneyHtml(value, { blankWhenZero = false } = {}) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || (blankWhenZero && n === 0)) {
+    return `<span class="val-none">${EMPTY}</span>`;
+  }
+  return `<span class="val${n < 0 ? " neg" : ""}">` +
+         `<span class="val-n">${fmtNum(n, 2)}</span>` +
+         `<span class="val-u">${currency()}</span></span>`;
+}
+
+/** عدد بلا وحدة، بنفس قواعد العرض أعلاه. */
+export function numHtml(value, { digits = 0, blankWhenZero = false } = {}) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || (blankWhenZero && n === 0)) {
+    return `<span class="val-none">${EMPTY}</span>`;
+  }
+  return `<span class="val${n < 0 ? " neg" : ""}">` +
+         `<span class="val-n">${fmtNum(n, digits)}</span></span>`;
+}
+
 export const toInt = (v, def = 0) => {
   const n = parseInt(String(v ?? "").replace(/[^\d-]/g, ""), 10);
   return Number.isFinite(n) ? n : def;
