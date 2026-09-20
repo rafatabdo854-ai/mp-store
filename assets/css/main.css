@@ -579,6 +579,13 @@ tr.click:hover { background: var(--brand-tint); }
 /* شريط التقدّم يقطع الشبكة كاملة */
 .stat-progress { grid-column: 1 / -1; }
 
+/* خانات .stat لا تحمل سطر شرح مثل .seg، فارتفاع 96 بكسل المحجوز
+   لذلك السطر يتحوّل عندها إلى فراغ. وثلاث خانات في عمودين تترك
+   ثُلثًا فارغًا: عناوينها قصيرة فتكفيها 96 بكسل عرضًا وتقف الثلاثة
+   في سطر واحد حتى على هاتف ضيّق. */
+.stat-grid { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+.stat { min-height: 0; padding: 12px 14px; }
+
 /* الألوان القديمة على .stat تُترجم إلى نفس متغيّر النغمة */
 .stat.warn   { --tone: var(--warn-ink); }
 .stat.danger { --tone: var(--out-ink); }
