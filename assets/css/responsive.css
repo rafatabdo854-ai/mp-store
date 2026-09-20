@@ -111,6 +111,52 @@ html { font-size: calc(16px * var(--ui-scale, 1)); }
     border-bottom: 1px solid var(--line-soft);
   }
 
+  /* ...إلا حين يكون العمود الأول كودًا. الكود معرّف لا عنوان: من يقرأ
+     الكرت يبحث عن اسم الصنف، فالكود يصعد سطرًا علويًا صغيرًا ويأخذ
+     الاسمُ بعده دورَ العنوان. */
+  .table-wrap td.code[data-first] {
+    font-family: var(--mono);
+    font-size: .72rem;
+    font-weight: 500;
+    letter-spacing: .04em;
+    color: var(--text-mute);
+    padding: 0 0 2px;
+    margin: 0;
+    border-bottom: 0;
+  }
+  .table-wrap td.code[data-first] + td {
+    font-size: 1.02rem;
+    font-weight: 600;
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .table-wrap td.code[data-first] + td::before { display: none; }
+
+  /* الصف حاوية مرنة: حقلان صغيران يقفان جنب بعض بدل سطر لكلٍّ منهما،
+     فينزل ارتفاع كرت التسعير نحو ستين بكسل. المتصفحات التي لا تدعم
+     :has() تعرضهما فوق بعض كما كان — تدهور مقبول لا كسر. */
+  .table-wrap tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    column-gap: 8px;
+  }
+  .table-wrap td { flex: 1 1 100%; }
+
+  .table-wrap td:has(input:not([type="checkbox"]):not([type="search"])) {
+    flex: 1 1 calc(50% - 4px);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+  .table-wrap td:has(input:not([type="checkbox"]):not([type="search"]))::before {
+    flex: none;
+    font-size: .72rem;
+  }
+  /* خلية الأزرار تبقى سطرًا كاملًا مهما كان ما بداخلها */
+  .table-wrap td[data-actions] { flex: 1 1 100%; }
+
   /* الأرقام تُقرأ لا تُفحَص: الرصيد والكمية أكبر من بقية السطور */
   .table-wrap td.num { font-family: var(--mono); font-size: 1rem; font-weight: 600; }
 
