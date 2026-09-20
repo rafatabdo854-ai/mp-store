@@ -1,6 +1,6 @@
 /** التقارير — أربعة تقارير جاهزة، كلها قابلة للطباعة والتصدير. */
 import { byId, esc, fillTable } from "../core/dom.js";
-import { fmtDate, fmtNum, fmtMoney, todayISO, itemFullLabel, itemLabel } from "../core/format.js";
+import { fmtDate, fmtNum, fmtMoney, moneyText, todayISO, itemFullLabel, itemLabel } from "../core/format.js";
 import { get } from "../core/store.js";
 import { reports } from "../data/repo.js";
 import { can } from "../auth/roles.js";
@@ -169,7 +169,7 @@ async function runProject(from, to) {
     cards: [
       { label: "عدد الأصناف", value: fmtNum(rows.length) },
       { label: "إجمالي الكميات", value: fmtNum(totalQty) },
-      ...(showValue ? [{ label: "إجمالي القيمة", value: fmtMoney(totalValue), kind: "money" }] : []),
+      ...(showValue ? [{ label: "إجمالي القيمة", value: moneyText(totalValue, { blankWhenZero: true }), kind: "money" }] : []),
     ],
   });
 }

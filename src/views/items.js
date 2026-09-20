@@ -1,6 +1,6 @@
 /** شاشة الأصناف — بحث فوري، إضافة وتعديل مع تحقق كامل. */
 import { byId, fillTable, esc, debounce, onClick } from "../core/dom.js";
-import { fmtNum, fmtMoney, itemLabel, arSort } from "../core/format.js";
+import { fmtNum, moneyHtml, itemLabel, arSort } from "../core/format.js";
 import { get, on, set } from "../core/store.js";
 import { items as itemsRepo, lists } from "../data/repo.js";
 import { can } from "../auth/roles.js";
@@ -111,7 +111,7 @@ function paint() {
       <td class="num center">${fmtNum(i.balance)}</td>
       <td class="num center">${fmtNum(i.threshold)}</td>
       <td class="center">${statusPill(i)}</td>
-      ${showPrice ? `<td class="num">${fmtMoney(i.unit_price)}</td>` : ""}
+      ${showPrice ? `<td class="num">${moneyHtml(i.unit_price, { blankWhenZero: true })}</td>` : ""}
       <td><div class="row-actions">
         ${can("manage_items") || can("edit_price")
           ? `<button class="btn ghost small" data-act="edit" data-id="${esc(i.id)}">تعديل</button>` : ""}

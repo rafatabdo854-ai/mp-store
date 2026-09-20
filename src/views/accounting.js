@@ -5,7 +5,7 @@
  * حتى لا تتغيّر تقارير الشهر الماضي عند تعديل سعر اليوم.
  */
 import { byId, esc, fillTable, onClick } from "../core/dom.js";
-import { fmtNum, fmtMoney, fmtDate, fmtDateTime, todayISO, toNum } from "../core/format.js";
+import { fmtNum, fmtMoney, moneyHtml, moneyText, EMPTY, fmtDate, fmtDateTime, todayISO, toNum } from "../core/format.js";
 import { accounting } from "../data/repo.js";
 import { can } from "../auth/roles.js";
 import { toast, toastError, confirmDialog, openModal, withBusy } from "../core/ui.js";
@@ -155,12 +155,12 @@ async function runValuation(from, to) {
     headers: ["الكود", "الصنف", "أول المدة", "قيمة أول المدة", "وارد", "قيمة الوارد",
               "منصرف", "تكلفة المنصرف", "آخر المدة", "قيمة آخر المدة"],
     cards: [
-      { label: "قيمة أول المدة", value: fmtMoney(t.opening_val), money: true, tone: "brand" },
-      { label: "قيمة المشتريات", value: fmtMoney(t.in_val), money: true, tone: "in",
+      { label: "قيمة أول المدة", value: moneyText(t.opening_val, { blankWhenZero: true }), money: true, tone: "brand" },
+      { label: "قيمة المشتريات", value: moneyText(t.in_val, { blankWhenZero: true }), money: true, tone: "in",
         sub: "إجمالي الوارد بالتكلفة" },
-      { label: "تكلفة المنصرف", value: fmtMoney(t.out_val), money: true, tone: "out",
+      { label: "تكلفة المنصرف", value: moneyText(t.out_val, { blankWhenZero: true }), money: true, tone: "out",
         sub: "يُحمَّل على المشاريع" },
-      { label: "قيمة آخر المدة", value: fmtMoney(t.closing_val), money: true, tone: "copper",
+      { label: "قيمة آخر المدة", value: moneyText(t.closing_val, { blankWhenZero: true }), money: true, tone: "copper",
         sub: "رصيد المخزون في نهاية الفترة" },
     ],
     rows: (data.rows || []).map((r) => `
@@ -168,13 +168,13 @@ async function runValuation(from, to) {
         <td class="code">${esc(r.code)}</td>
         <td>${esc(r.label)}</td>
         <td class="num center">${fmtNum(r.opening_qty)}</td>
-        <td class="num">${fmtMoney(r.opening_val)}</td>
+        <td class="num">${moneyHtml(r.opening_val, { blankWhenZero: true })}</td>
         <td class="num center">${fmtNum(r.in_qty)}</td>
-        <td class="num">${fmtMoney(r.in_val)}</td>
+        <td class="num">${moneyHtml(r.in_val, { blankWhenZero: true })}</td>
         <td class="num center">${fmtNum(r.out_qty)}</td>
-        <td class="num">${fmtMoney(r.out_val)}</td>
+        <td class="num">${moneyHtml(r.out_val, { blankWhenZero: true })}</td>
         <td class="num center">${fmtNum(r.closing_qty)}</td>
-        <td class="num">${fmtMoney(r.closing_val)}</td>
+        <td class="num">${moneyHtml(r.closing_val, { blankWhenZero: true })}</td>
       </tr>`),
     foot: `المعادلة: قيمة أول المدة + المشتريات − تكلفة المنصرف = قيمة آخر المدة`,
   });
@@ -200,7 +200,7 @@ async function runProjects(from, to) {
     subtitle: `من ${fmtDate(from)} إلى ${fmtDate(to)} — ${fmtNum(rows.length)} مشروع`,
     headers: ["المشروع", "الأذون", "الأصناف", "الكميات", "التكلفة", "النسبة", ""],
     cards: [
-      { label: "إجمالي التكلفة المحمّلة", value: fmtMoney(total), money: true, tone: "out" },
+      { label: "إجمالي التكلفة المحمّلة", value: moneyText(total, { blankWhenZero: true }), money: true, tone: "out" },
       { label: "عدد المشاريع", value: fmtNum(rows.length), tone: "brand" },
       { label: "أعلى مشروع", value: top ? top.project : "—", money: true, tone: "copper",
         sub: top ? fmtMoney(top.cost) : "" },
@@ -211,7 +211,7 @@ async function runProjects(from, to) {
         <td class="num center">${fmtNum(r.vouchers)}</td>
         <td class="num center">${fmtNum(r.items)}</td>
         <td class="num center">${fmtNum(r.qty)}</td>
-        <td class="num">${fmtMoney(r.cost)}</td>
+        <td class="num">${moneyHtml(r.cost, { blankWhenZero: true })}</td>
         <td class="num center">${total > 0 ? fmtNum((Number(r.cost) / total) * 100, 1) : 0}%</td>
         <td><button class="btn ghost small" data-project="${esc(r.project)}">تفصيل</button></td>
       </tr>`),
@@ -238,8 +238,8 @@ async function projectDetail(project) {
           <tbody>${rows.map((r) => `<tr>
             <td>${esc(r.item_name)}</td>
             <td class="num center">${fmtNum(r.qty)}</td>
-            <td class="num">${fmtMoney(r.avg_cost)}</td>
-            <td class="num">${fmtMoney(r.cost)}</td></tr>`).join("")}</tbody>
+            <td class="num">${moneyHtml(r.avg_cost, { blankWhenZero: true })}</td>
+            <td class="num">${moneyHtml(r.cost, { blankWhenZero: true })}</td></tr>`).join("")}</tbody>
         </table></div>
         <div class="hint">الإجمالي: ${fmtMoney(total)}</div>`,
       actions: [{
@@ -275,7 +275,7 @@ async function runPurchases(from, to) {
     headers: ["رقم الإذن", "التاريخ", "المورد", "الأصناف", "قيمة الإذن",
               "رقم الفاتورة", "قيمة الفاتورة", "الفرق", "الحالة", ""],
     cards: [
-      { label: "إجمالي المشتريات", value: fmtMoney(total), money: true, tone: "in" },
+      { label: "إجمالي المشتريات", value: moneyText(total, { blankWhenZero: true }), money: true, tone: "in" },
       { label: "أذون بانتظار المراجعة", value: fmtNum(pending), tone: "warn",
         sub: `من ${fmtNum(rows.length)} إذن` },
       { label: "أذون بها فروقات", value: fmtNum(disputed), tone: "out" },
@@ -288,12 +288,13 @@ async function runPurchases(from, to) {
         <td>${fmtDate(r.txn_date)}</td>
         <td>${esc(r.party || "-")}</td>
         <td class="num center">${fmtNum(r.lines)}</td>
-        <td class="num">${fmtMoney(r.voucher_value)}</td>
+        <td class="num">${moneyHtml(r.voucher_value, { blankWhenZero: true })}</td>
         <td class="code">${esc(r.invoice_no || "-")}</td>
-        <td class="num">${r.invoice_amount !== null && r.invoice_amount !== undefined
-            ? fmtMoney(r.invoice_amount) : "-"}</td>
-        <td class="num">${r.invoice_amount === null || r.invoice_amount === undefined ? "-"
-            : `<span style="color:${Math.abs(diff) < 0.01 ? "var(--ok)" : "var(--out)"}">${fmtMoney(diff)}</span>`}</td>
+        <td class="num">${r.invoice_amount === null || r.invoice_amount === undefined
+            ? `<span class="val-none">${EMPTY}</span>` : moneyHtml(r.invoice_amount)}</td>
+        <td class="num">${r.invoice_amount === null || r.invoice_amount === undefined
+            ? `<span class="val-none">${EMPTY}</span>`
+            : `<span class="${Math.abs(diff) < 0.01 ? "diff-ok" : "diff-off"}">${moneyHtml(diff)}</span>`}</td>
         <td class="center">${STATUS[r.status] || STATUS.pending}</td>
         <td><button class="btn ghost small" data-review="${esc(r.voucher_no)}">مراجعة</button></td>
       </tr>`;
@@ -403,9 +404,9 @@ async function runPrices() {
     cards: [
       { label: "أصناف بلا سعر", value: fmtNum(s.missing_count), tone: "out",
         sub: `من ${fmtNum(s.items)} صنف` },
-      { label: "قيمة المخزون بالتكلفة", value: fmtMoney(s.value_at_cost), money: true, tone: "copper",
+      { label: "قيمة المخزون بالتكلفة", value: moneyText(s.value_at_cost, { blankWhenZero: true }), money: true, tone: "copper",
         sub: "المتوسط المرجّح" },
-      { label: "قيمته بآخر سعر شراء", value: fmtMoney(s.value_at_last), money: true, tone: "brand",
+      { label: "قيمته بآخر سعر شراء", value: moneyText(s.value_at_last, { blankWhenZero: true }), money: true, tone: "brand",
         sub: "للمقارنة فقط" },
       { label: "أذون وارد بلا تكلفة", value: fmtNum(zero.length), tone: "warn",
         sub: "استُلمت بدون سعر" },
@@ -425,8 +426,8 @@ async function runPrices() {
           <td class="code">${esc(r.code)}</td>
           <td>${esc(r.label)}</td>
           <td class="num center">${fmtNum(r.balance)}</td>
-          <td class="num">${fmtMoney(r.unit_price)}</td>
-          <td class="num">${fmtMoney(r.avg_cost)}</td>
+          <td class="num">${moneyHtml(r.unit_price, { blankWhenZero: true })}</td>
+          <td class="num">${moneyHtml(r.avg_cost, { blankWhenZero: true })}</td>
           <td class="num center">${fmtNum(r.gap_pct)}%</td>
         </tr>`),
     ],

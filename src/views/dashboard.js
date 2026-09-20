@@ -4,9 +4,9 @@
  * كل رقم فيها قابل للضغط ويأخذك للشاشة المناسبة بالمرشّح جاهزًا.
  */
 import { byId, esc, fillTable, onClick } from "../core/dom.js";
-import { fmtNum, fmtMoney, fmtDate, fmtDateTime } from "../core/format.js";
+import { fmtNum, fmtMoney, moneyHtml, moneyText, fmtDate, fmtDateTime } from "../core/format.js";
 import { reports } from "../data/repo.js";
-import { set } from "../core/store.js";
+import { set, get } from "../core/store.js";
 import { can } from "../auth/roles.js";
 import { toast, toastError } from "../core/ui.js";
 import { exportRows } from "../data/excel.js";
@@ -291,7 +291,7 @@ function paintKpi(k, mv, showValue) {
   );
 
   if (showValue) cards.push({
-    tone: "copper", label: "قيمة المخزون", value: fmtMoney(k.stock_value), money: true,
+    tone: "copper", label: "قيمة المخزون", value: moneyText(k.stock_value, { blankWhenZero: true }), money: true,
     sub: k.unpriced > 0 ? `${fmtNum(k.unpriced)} صنف بلا سعر` : "كل الأصناف مسعّرة",
     goto: "pricing",
   });
@@ -387,13 +387,19 @@ function paintDonuts(k, showValue) {
   }
 
   if (showValue) {
-    const priced = Math.max(0, k.items_count - k.unpriced);
+    // k.unpriced يَعُدّ الأصناف التي لها رصيد وبلا سعر فقط، فطرحه من
+    // إجمالي الأصناف كان يَحسب كلَّ صنف رصيده صفر على أنه "مسعّر":
+    // لوحة تقول 20% مسعّر وشاشة التسعير تقول صفر. العدّ الآن من قائمة
+    // الأصناف نفسها التي تعتمد عليها شاشة التسعير، فتتفق الشاشتان.
+    const all = get("items") || [];
+    const priced = all.filter((i) => Number(i.unit_price) > 0).length;
+    const total = all.length || k.items_count || 0;
     parts.push(donut({
       title: "اكتمال التسعير",
-      big: `${fmtNum(k.items_count ? Math.round((priced / k.items_count) * 100) : 0)}%`, cap: "مسعّر",
+      big: `${fmtNum(total ? Math.round((priced / total) * 100) : 0)}%`, cap: "مسعّر",
       segments: [
         { label: "مسعّر", value: priced, color: TONES.brand },
-        { label: "بلا سعر", value: k.unpriced, color: TONES.mute },
+        { label: "بلا سعر", value: Math.max(0, total - priced), color: TONES.mute },
       ],
     }));
   }
@@ -547,7 +553,7 @@ function paintNegative(showValue) {
       <td class="code">${esc(r.code)}</td>
       <td>${esc(r.label)}</td>
       <td class="num center"><b style="color:var(--out,#c0392b)">${fmtNum(r.balance)}</b> ${esc(r.unit)}</td>
-      ${showValue ? `<td class="num">${fmtMoney(r.shortfall_value)}</td>` : ""}
+      ${showValue ? `<td class="num">${moneyHtml(r.shortfall_value, { blankWhenZero: true })}</td>` : ""}
       <td>${r.voucher_no ? esc(r.voucher_no) : "-"}</td>
       <td>${r.requested_by ? esc(r.requested_by) : "-"}</td>
       <td>${r.requested_at ? fmtDateTime(r.requested_at) : "-"}</td>
@@ -602,7 +608,7 @@ function paintReorder(showValue) {
       <td>${esc(r.label)}</td>
       <td class="num center">${fmtNum(r.balance)}</td>
       <td class="num center"><b>${fmtNum(r.suggest_qty)}</b> ${esc(r.unit)}</td>
-      ${showValue ? `<td class="num">${fmtMoney(r.suggest_value)}</td>` : ""}
+      ${showValue ? `<td class="num">${moneyHtml(r.suggest_value, { blankWhenZero: true })}</td>` : ""}
     </tr>`), showValue ? 5 : 4, "لا توجد أصناف تحتاج توريدًا");
 
   const total = rows.reduce((s, r) => s + Number(r.suggest_value || 0), 0);
@@ -645,7 +651,7 @@ function paintStagnant(showValue) {
       <td>${esc(r.label)}</td>
       <td class="num center">${fmtNum(r.balance)}</td>
       <td>${r.last_out ? fmtDate(r.last_out) : "لم يُصرف مطلقًا"}</td>
-      ${showValue ? `<td class="num">${fmtMoney(r.value)}</td>` : ""}
+      ${showValue ? `<td class="num">${moneyHtml(r.value, { blankWhenZero: true })}</td>` : ""}
     </tr>`), showValue ? 5 : 4, "لا يوجد رصيد راكد");
 }
 
@@ -658,7 +664,7 @@ function paintCategories(showValue) {
       <td class="num center">${fmtNum(c.qty)}</td>
       <td class="center">${Number(c.at_risk) > 0
         ? `<span class="pill low">${fmtNum(c.at_risk)}</span>` : `<span class="pill ok">0</span>`}</td>
-      ${showValue ? `<td class="num">${fmtMoney(c.value)}</td>` : ""}
+      ${showValue ? `<td class="num">${moneyHtml(c.value, { blankWhenZero: true })}</td>` : ""}
     </tr>`), showValue ? 5 : 4, "لا توجد أصناف بعد");
 }
 
