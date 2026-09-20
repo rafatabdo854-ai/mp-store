@@ -9,7 +9,7 @@
  * عند تعديل أي ملف في src/ أو assets/: ارفع رقم CACHE_VERSION — وإلا بقي
  * المستخدمون على النسخة القديمة حتى تنتهي صلاحية الملف في المتصفح.
  */
-const CACHE_VERSION = "v10.17.0";
+const CACHE_VERSION = "v10.16.1";
 const SHELL_CACHE = `mpstore-shell-${CACHE_VERSION}`;
 const CDN_CACHE   = `mpstore-cdn-${CACHE_VERSION}`;
 
