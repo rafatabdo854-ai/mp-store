@@ -474,7 +474,15 @@ function paintAlerts(k, mv) {
 /** رسم بياني بالـ SVG — بلا مكتبات خارجية. */
 function paintChart(series) {
   let points = series || [];
-  if (!points.length) { byId("dashChart").innerHTML = `<div class="empty">لا توجد حركة</div>`; return; }
+
+  // سلسلة من أصفار ليست بيانات: الخادم يُرجع نقطةً لكل يوم في الفترة
+  // سواء تحرّك المخزن أم لا، فيمرّ الشرط القديم (الطول > 0) ويُرسَم
+  // محورٌ وشبكةٌ فوق لا شيء — 250 بكسل من أعلى اللوحة لرسم فارغ.
+  const hasMovement = points.some((p) => Number(p.in_qty) || Number(p.out_qty));
+  if (!points.length || !hasMovement) {
+    byId("dashChart").innerHTML = `<div class="empty">لا توجد حركة في هذه الفترة</div>`;
+    return;
+  }
 
   // فوق شهر: اجمع أسبوعيًا حتى تبقى الأعمدة مقروءة
   if (points.length > 31) {
