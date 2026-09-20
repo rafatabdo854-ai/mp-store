@@ -83,31 +83,44 @@ html { font-size: calc(16px * var(--ui-scale, 1)); }
     padding: 10px 12px;
   }
 
+  /* الخلية مربّع مستقل: مُسمّى صغير فوق وقيمة غامقة تحت على أرضية
+     ناعمة — نفس نمط لوح "عن النظام" في الإعدادات. كان المُسمّى يجاور
+     القيمة على السطر بعرض 38%، فأي عنوان طويل ينكسر سطرين وتطفو
+     قيمته بجانبه ويضيع الربط بينهما. فوق بعضهما يُقرأ الاثنان
+     كوحدة واحدة، ويتحوّل الكرت إلى شبكة مربّعات تُمسح بنظرة. */
   .table-wrap td {
     border: 0;
-    padding: 5px 0;
     display: flex;
-    align-items: baseline;
-    gap: 10px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
     text-align: start;
     min-height: 0;
+    background: var(--line-soft);
+    border-radius: 9px;
+    padding: 8px 11px;
+    font-size: .88rem;
+    font-weight: 600;
   }
 
   .table-wrap td::before {
     content: attr(data-label);
-    flex: 0 0 38%;
+    flex: none;
     color: var(--text-mute);
-    font-size: .78rem;
+    font-size: .72rem;
     font-weight: 500;
+    line-height: 1.35;
   }
 
   /* الخلية الأولى عنوان الكرت: بلا مُسمّى، وبحجم يُقرأ من مسافة ذراع */
   .table-wrap td[data-first]::before { display: none; }
   .table-wrap td[data-first] {
+    background: none;
+    border-radius: 0;
     font-size: 1.02rem;
     font-weight: 600;
-    padding-bottom: 8px;
-    margin-bottom: 4px;
+    padding: 0 2px 8px;
+    margin-bottom: 2px;
     border-bottom: 1px solid var(--line-soft);
   }
 
@@ -115,16 +128,21 @@ html { font-size: calc(16px * var(--ui-scale, 1)); }
      الكرت يبحث عن اسم الصنف، فالكود يصعد سطرًا علويًا صغيرًا ويأخذ
      الاسمُ بعده دورَ العنوان. */
   .table-wrap td.code[data-first] {
+    background: none;
+    border-radius: 0;
     font-family: var(--mono);
     font-size: .72rem;
     font-weight: 500;
     letter-spacing: .04em;
     color: var(--text-mute);
-    padding: 0 0 2px;
+    padding: 0 2px 3px;
     margin: 0;
     border-bottom: 0;
   }
   .table-wrap td.code[data-first] + td {
+    background: none;
+    border-radius: 0;
+    padding: 0 2px 8px;
     font-size: 1.02rem;
     font-weight: 600;
     padding-bottom: 8px;
@@ -139,8 +157,9 @@ html { font-size: calc(16px * var(--ui-scale, 1)); }
   .table-wrap tr {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-start;
+    align-items: stretch;
     column-gap: 8px;
+    row-gap: 8px;
   }
   .table-wrap td { flex: 1 1 100%; }
 
@@ -155,7 +174,11 @@ html { font-size: calc(16px * var(--ui-scale, 1)); }
     font-size: .72rem;
   }
   /* خلية الأزرار تبقى سطرًا كاملًا مهما كان ما بداخلها */
-  .table-wrap td[data-actions] { flex: 1 1 100%; }
+  .table-wrap td[data-actions] {
+    flex: 1 1 100%;
+    background: none; border-radius: 0; padding: 2px 0 0;
+    flex-direction: row; flex-wrap: wrap; gap: 8px;
+  }
 
   /* خليّتان رقميّتان متجاورتان تتقاسمان السطر؛ والخليّة الرقمية
      الوحيدة تتمدّد وحدها لأن flex-grow يملأ ما تبقّى. فينزل كرت
@@ -213,7 +236,10 @@ html { font-size: calc(16px * var(--ui-scale, 1)); }
   .table-wrap td[data-actions]::before { display: none; }
   .table-wrap td[data-actions] .btn { flex: 1 1 auto; min-height: 40px; }
 
-  .table-wrap td.empty { justify-content: center; color: var(--text-mute); }
+  .table-wrap td.empty {
+    justify-content: center; align-items: center; color: var(--text-mute);
+    background: none; font-weight: 400;
+  }
   .table-wrap td.empty::before { display: none; }
 
   /* صف الإجمالي يبقى صفًا: هو ملخّص لا سجلّ */
@@ -233,8 +259,17 @@ html { font-size: calc(16px * var(--ui-scale, 1)); }
      العريضة. على الهاتف لا يتّسع الصف، فيدفع الفاصلُ المرن آخرَ زر
      وحده إلى سطر تالٍ — "إضافة صنف" معلّقًا تحت "تنزيل Excel".
      العنوان يأخذ سطره والأزرار تصطفّ تحته كمجموعة واحدة. */
-  .panel-head h2 { flex: 1 1 100%; }
+  .panel-head h2 { flex: 1 1 100%; order: -2; }
   .panel-head .spacer { display: none; }
+
+  /* والفعل الأساسي يتقدّم المجموعة. في الترميز يأتي آخرًا لأنه على
+     الشاشة العريضة يقع في طرف الصف البعيد؛ وعلى الهاتف — بلا فاصل
+     يدفعه — يصير آخر ما تصله العين وأبعد ما يصله الإبهام. */
+  .panel-head .btn:not(.ghost) { order: -1; }
+
+  /* عدّاد النتائج سطرٌ عن الحالة لا حقلُ تصفية: يأخذ سطره أسفل
+     الحقول بدل أن يزاحمها على عرض الصف */
+  .toolbar .hint { flex: 1 1 100%; margin: 2px 0 0; }
 
   /* الفاصل النائب فوق الأزرار وظيفته محاذاة الزر بحقلٍ إلى جواره على
      الشاشة العريضة. على الهاتف الحقول فوق بعضها فلا شيء يُحاذى،
