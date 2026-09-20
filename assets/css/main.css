@@ -178,7 +178,7 @@ main { padding: 18px; max-width: 1400px; margin: 0 auto; width: 100%; flex: 1; m
 /* ---------------- البطاقات واللوحات ---------------- */
 .panel {
   background-color: var(--card); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 21px 18px 18px; margin-bottom: 16px;
+  border-radius: var(--radius); padding: 18px; margin-bottom: 16px;
   box-shadow: var(--shadow);
 }
 .panel > h2 { margin: 0 0 14px; font-size: 1rem; }
@@ -248,7 +248,7 @@ td.center, th.center { text-align: center; }
 /* اللوح الفارغ لا يستحق مساحة اللوح الممتلئ. كانت "حركة المخزن"
    الفارغة تأخذ 280 بكسل من أعلى الصفحة، و"آخر الحركات" تعرض رؤوس
    جدول فوق رسالة فراغ — رؤوس أعمدة لا شيء تحتها. */
-.panel:has(> .empty) { padding: 16px 13px 13px; }
+.panel:has(> .empty) { padding: 13px; }
 .table-wrap:has(td.empty) thead { display: none; }
 .table-wrap:has(td.empty) tr { border: 0; background: none; box-shadow: none; }
 
@@ -294,20 +294,25 @@ td.center, th.center { text-align: center; }
 .plate {
   display: inline-block;
   background: #16323C; color: #C9DDE3;
-  font-family: var(--mono); font-size: .72rem; letter-spacing: .09em;
-  padding: 3px 9px; border-radius: 3px; direction: ltr;
+  font-family: var(--mono); font-size: .69rem; letter-spacing: .07em;
+  padding: 2px 7px; border-radius: 3px; direction: ltr;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), inset 0 -1px 0 rgba(0, 0, 0, .35);
 }
 
-/* قضيب التغذية: شريط نحاسي ثلاثي الأوجه أعلى كل لوح. مرسوم
-   بـ background-image لا بعنصر زائف ولا overflow: hidden — الأخير
-   يكسر رؤوس الجداول اللاصقة داخل اللوح. */
-.panel, .kpi-strip, .stat-grid {
+/* قضيب التغذية: شريط نحاسي واحد أعلى الشريط العلوي، يمتدّ عبر
+   الشاشة كلها ويبقى مثبّتًا مع الشريط أثناء التمرير.
+
+   جرّبتُه أولًا فوق كل لوح فبطل أن يعني شيئًا: شاشة فيها لوحان
+   تحمل قضيبين، وشاشة فيها خمسة تحمل خمسة، فيصير زخرفة مكرّرة لا
+   بنية. واللوحة الحقيقية لها قضيب تغذية واحد يُغذّي ما تحته — وهذا
+   ما تقوله الصورة هنا. */
+.topbar {
   background-image: linear-gradient(to left,
     #A9622C 0 33.34%, #8C5A2B 33.34% 66.67%, #6E4522 66.67% 100%);
   background-repeat: no-repeat;
   background-size: 100% 3px;
   background-position: top center;
+  padding-top: 15px;
 }
 
 /* ---------------- الحقول ---------------- */
@@ -602,7 +607,7 @@ tr.click:hover { background: var(--brand-tint); }
    الحافة بدل أن تقفز بين مراكز خانات بعروض مختلفة. */
 .kpi-strip, .stat-grid {
   background-color: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
-  box-shadow: var(--shadow); margin-bottom: 16px; padding-top: 3px;
+  box-shadow: var(--shadow); margin-bottom: 16px;
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 @media (min-width: 620px)  { .kpi-strip, .stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
