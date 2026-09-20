@@ -162,6 +162,23 @@ html { font-size: calc(16px * var(--ui-scale, 1)); }
      التسعير من ثلاثة أسطر أرقام إلى سطرين. */
   .table-wrap td.num { flex: 1 1 calc(50% - 4px); }
 
+  /* والمُسمّى يعلو القيمة بدل أن يجاورها: في نصف سطر لا تتّسع 38%
+     لعنوان مثل "قيمة أول المدة" فينكسر سطرين وتطفو الشرطة بجانبه.
+     فوق بعضهما يقرأ الاثنان كخانة واحدة صغيرة. */
+  .table-wrap td.num {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1px;
+  }
+  .table-wrap td.num::before {
+    flex: none;
+    font-size: .7rem;
+    line-height: 1.35;
+  }
+
+  /* حقول أضيق قليلًا على الهاتف حتى يتّسع السطر لحقلين */
+  .fields { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+
   /* مربّع الاختيار يبقى بحجمه، والمُسمّى يأخذ بقية السطر */
   .table-wrap td:has(> input[type="checkbox"]) { align-items: center; }
   .table-wrap td input[type="checkbox"],
