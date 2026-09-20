@@ -21,7 +21,7 @@ function build() {
         <div class="field"><label>الاسم</label><input id="myName" readonly></div>
         <div class="field"><label>اسم المستخدم</label><input id="myUser" readonly></div>
         <div class="field"><label>الدور</label><input id="myRole" readonly></div>
-        <div class="field"><label>&nbsp;</label>
+        <div class="field"><span class="field-spacer" aria-hidden="true">&nbsp;</span>
           <button class="btn ghost" id="btnChangePass">تغيير كلمة المرور</button></div>
       </div>
     </div>
@@ -85,7 +85,7 @@ function build() {
           <label for="setThreshold">الحد الأدنى الافتراضي للأصناف الجديدة</label>
           <input type="number" id="setThreshold" min="0">
         </div>
-        <div class="field"><label>&nbsp;</label>
+        <div class="field"><span class="field-spacer" aria-hidden="true">&nbsp;</span>
           <button class="btn ghost" id="btnSaveSettings">حفظ الإعدادات</button></div>
       </div>
     </div>` : ""}

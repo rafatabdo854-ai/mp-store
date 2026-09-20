@@ -44,7 +44,7 @@ function build() {
           <input type="date" id="rpTo" value="${todayISO()}">
         </div>
         <div class="field">
-          <label>&nbsp;</label>
+          <span class="field-spacer" aria-hidden="true">&nbsp;</span>
           <button class="btn" id="rpRun">تشغيل التقرير</button>
         </div>
       </div>

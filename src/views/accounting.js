@@ -36,7 +36,7 @@ function build() {
         <span class="spacer"></span>
         <button class="btn ghost small" id="acRecalc">إعادة بناء التكاليف</button>
       </div>
-      <div class="period" id="acTabs" style="flex-wrap:wrap">
+      <div class="period" id="acTabs">
         ${TABS.map((t) => `<button data-tab="${t.id}">${esc(t.label)}</button>`).join("")}
       </div>
       <div class="fields" style="margin-top:14px">
@@ -49,11 +49,11 @@ function build() {
           <input type="date" id="acTo" value="${todayISO()}">
         </div>
         <div class="field">
-          <label>&nbsp;</label>
+          <span class="field-spacer" aria-hidden="true">&nbsp;</span>
           <button class="btn" id="acRun">عرض</button>
         </div>
         <div class="field">
-          <label>&nbsp;</label>
+          <span class="field-spacer" aria-hidden="true">&nbsp;</span>
           <button class="btn ghost" id="acQuickMonth">الشهر الحالي</button>
         </div>
       </div>
