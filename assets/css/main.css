@@ -111,7 +111,11 @@ a { color: var(--brand); }
 .nav button svg { width: 17px; height: 17px; flex: none; stroke: currentColor; fill: none;
                   stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .nav button:hover { background: var(--line-soft); color: var(--text); }
-.nav button.active { background: var(--brand-tint); color: var(--brand-dark); font-weight: 600; }
+.nav button.active {
+  background: var(--brand-tint); color: var(--brand-dark); font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--copper);
+}
+html[dir="ltr"] .nav button.active { box-shadow: inset -3px 0 0 var(--copper); }
 .nav button[hidden] { display: none; }
 
 .side-foot { margin-top: auto; padding: 12px 8px 0; border-top: 1px solid var(--line-soft); }
@@ -173,8 +177,8 @@ main { padding: 18px; max-width: 1400px; margin: 0 auto; width: 100%; flex: 1; m
 
 /* ---------------- البطاقات واللوحات ---------------- */
 .panel {
-  background: var(--card); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 18px; margin-bottom: 16px;
+  background-color: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 21px 18px 18px; margin-bottom: 16px;
   box-shadow: var(--shadow);
 }
 .panel > h2 { margin: 0 0 14px; font-size: 1rem; }
@@ -244,7 +248,7 @@ td.center, th.center { text-align: center; }
 /* اللوح الفارغ لا يستحق مساحة اللوح الممتلئ. كانت "حركة المخزن"
    الفارغة تأخذ 280 بكسل من أعلى الصفحة، و"آخر الحركات" تعرض رؤوس
    جدول فوق رسالة فراغ — رؤوس أعمدة لا شيء تحتها. */
-.panel:has(> .empty) { padding: 13px; }
+.panel:has(> .empty) { padding: 16px 13px 13px; }
 .table-wrap:has(td.empty) thead { display: none; }
 .table-wrap:has(td.empty) tr { border: 0; background: none; box-shadow: none; }
 
@@ -253,7 +257,7 @@ td.center, th.center { text-align: center; }
 .toolbar input[type="date"] { max-width: 180px; }
 
 .pill {
-  display: inline-flex; align-items: center; gap: 5px;
+  display: inline-flex; align-items: center; gap: 6px;
   padding: 3px 9px; border-radius: 6px;
   font-size: .72rem; font-weight: 600; line-height: 1.5;
 }
@@ -266,8 +270,45 @@ td.center, th.center { text-align: center; }
 .pill.mute { background: var(--line-soft); color: #41555D; font-weight: 500; }
 .pill.mono { font-family: var(--mono); font-weight: 500; }
 
-/* نقطة صغيرة داخل الشارة: تُقرأ قبل النص وتفيد من يميّز الألوان بصعوبة */
-.pill .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex: none; }
+/* ============================================================
+   هوية لوحة التوزيع
+   شاشة الدخول لوحة كهربائية كاملة — حاوية ومسامير وقضبان نحاس
+   ومصابيح بيان — ولا شيء منها داخل النظام. ما يلي ينقل الفكرة
+   إلى الشاشات كلمسات على سطح فاتح: النظام يُستعمل ساعاتٍ في مخزن
+   عالي الإضاءة، والسطح الداكن يتعب العين ويصعب قراءته في الشمس.
+   ============================================================ */
+
+/* مصباح البيان: كل شارة حالة تحمل نقطة متوهّجة بلون نصّها. التوهّج
+   ليس زينة — هو إشارة ثانية إلى جانب اللون، يقرؤها من يميّز الألوان
+   بصعوبة. الشارات المحايدة بلا مصباح لأنها معلومة لا حالة. */
+.pill::before {
+  content: ""; flex: none;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .5), 0 0 7px currentColor;
+}
+.pill.mute::before, .pill.mono::before { display: none; }
+
+/* لوحة الاسم: الكود يُعامَل كاللوحة المحفورة على القاطع نفسه —
+   سطح داكن، حروف فاتحة، حزّ ضوئي أعلى وظلّ أسفل. */
+.plate {
+  display: inline-block;
+  background: #16323C; color: #C9DDE3;
+  font-family: var(--mono); font-size: .72rem; letter-spacing: .09em;
+  padding: 3px 9px; border-radius: 3px; direction: ltr;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), inset 0 -1px 0 rgba(0, 0, 0, .35);
+}
+
+/* قضيب التغذية: شريط نحاسي ثلاثي الأوجه أعلى كل لوح. مرسوم
+   بـ background-image لا بعنصر زائف ولا overflow: hidden — الأخير
+   يكسر رؤوس الجداول اللاصقة داخل اللوح. */
+.panel, .kpi-strip, .stat-grid {
+  background-image: linear-gradient(to left,
+    #A9622C 0 33.34%, #8C5A2B 33.34% 66.67%, #6E4522 66.67% 100%);
+  background-repeat: no-repeat;
+  background-size: 100% 3px;
+  background-position: top center;
+}
 
 /* ---------------- الحقول ---------------- */
 /* align-items: end يضع كل حقل على خط القاعدة نفسه، فيقف الزر بمحاذاة
@@ -413,8 +454,20 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--out); back
   border: 0; background: transparent; font: inherit; font-size: .82rem;
   padding: 6px 14px; border-radius: 999px; cursor: pointer; color: var(--text-mute);
   flex: none; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 7px;
 }
-.period button.on { background: var(--brand); color: #fff; font-weight: 600; }
+/* لمبة القاطع: خضراء متوهّجة حين تكون الدائرة مغلقة، رمادية مطفأة
+   حين تكون مفتوحة. الفرق يُقرأ من بعيد قبل قراءة النص. */
+.period button::before {
+  content: ""; flex: none;
+  width: 8px; height: 8px; border-radius: 50%; background: #C7D0D6;
+}
+.period button.on {
+  background: linear-gradient(180deg, #1B3B47 0%, #13303B 100%);
+  color: #DCEAEE; font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 1px 2px rgba(11, 32, 41, .3);
+}
+.period button.on::before { background: #22B573; box-shadow: 0 0 7px rgba(34, 181, 115, .8); }
 .period button:hover:not(.on) { color: var(--text); }
 
 /* ---------- مركز الإجراءات ---------- */
@@ -548,8 +601,8 @@ tr.click:hover { background: var(--brand-tint); }
    الأرقام محاذاة للبداية لا للوسط: العين تمسح عمودًا واحدًا عند
    الحافة بدل أن تقفز بين مراكز خانات بعروض مختلفة. */
 .kpi-strip, .stat-grid {
-  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
-  box-shadow: var(--shadow); margin-bottom: 16px;
+  background-color: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); margin-bottom: 16px; padding-top: 3px;
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 @media (min-width: 620px)  { .kpi-strip, .stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
