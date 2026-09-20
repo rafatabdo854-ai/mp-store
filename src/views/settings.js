@@ -191,7 +191,7 @@ async function loadUsers() {
     fillTable(byId("usersBody"), rows.map((u) => `
       <tr>
         <td>${esc(u.full_name)}</td>
-        <td class="code">${esc(u.username)}</td>
+        <td class="code"><span class="plate">${esc(u.username)}</span></td>
         <td><select data-user="${esc(u.id)}" style="max-width:170px">
           ${roleOptions().map(({ code, label }) =>
             `<option value="${code}" ${u.role === code ? "selected" : ""}>${esc(label)}</option>`).join("")}

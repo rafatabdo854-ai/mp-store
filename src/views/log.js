@@ -129,7 +129,7 @@ function paint() {
   fillTable(byId("logBody"), state.rows.map((t) => `
     <tr>
       <td><span class="pill ${t.type}">${t.type === "in" ? "وارد" : "صرف"}</span></td>
-      <td class="code">${esc(t.voucher_no)}</td>
+      <td class="code"><span class="plate">${esc(t.voucher_no)}</span></td>
       <td>${fmtDate(t.txn_date)}</td>
       <td>${esc(t.item_name)}</td>
       <td class="num center">${fmtNum(t.qty)}</td>

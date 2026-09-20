@@ -266,7 +266,7 @@ function paint() {
         <td>${esc(a.actor_name || "غير معروف")}</td>
         <td>${esc(ACTIONS[a.action] || a.action)}</td>
         <td>${esc(ENTITIES[a.entity] || a.entity)}</td>
-        <td class="code">${esc(a.entity_id || "-")}</td>
+        <td class="code"><span class="plate">${esc(a.entity_id || "-")}</span></td>
         <td><button class="btn ghost small" data-row="${i}">عرض</button></td>
       </tr>`), 6, "لا توجد تعديلات مطابقة");
     byId("auCount").textContent = rangeText(s);

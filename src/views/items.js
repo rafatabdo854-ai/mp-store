@@ -104,7 +104,7 @@ function paint() {
 
   fillTable(byId("itemsBody"), rows.map((i) => `
     <tr>
-      <td class="code">${esc(i.code)}</td>
+      <td class="code"><span class="plate">${esc(i.code)}</span></td>
       <td>${esc(itemLabel(i))}${i.spec ? `<div class="hint">${esc(i.spec)}</div>` : ""}</td>
       <td>${esc(i.category)}</td>
       <td class="center">${esc(i.unit)}</td>

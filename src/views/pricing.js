@@ -132,7 +132,7 @@ function paint() {
   const editable = can("edit_price");
   fillTable(byId("prBody"), list.map((i) => `
     <tr>
-      <td class="code">${esc(i.code)}</td>
+      <td class="code"><span class="plate">${esc(i.code)}</span></td>
       <td>${esc(itemLabel(i))}</td>
       <td class="num center span-row">${fmtNum(i.balance)}</td>
       <td>${editable

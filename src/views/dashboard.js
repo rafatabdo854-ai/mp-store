@@ -558,7 +558,7 @@ function paintNegative(showValue) {
 
   fillTable(byId("negativeBody"), rows.map((r) => `
     <tr>
-      <td class="code">${esc(r.code)}</td>
+      <td class="code"><span class="plate">${esc(r.code)}</span></td>
       <td>${esc(r.label)}</td>
       <td class="num center"><b style="color:var(--out,#c0392b)">${fmtNum(r.balance)}</b> ${esc(r.unit)}</td>
       ${showValue ? `<td class="num">${moneyHtml(r.shortfall_value, { blankWhenZero: true })}</td>` : ""}
@@ -597,7 +597,7 @@ function paintRisk() {
   byId("riskPanel").hidden = rows.length === 0;
   fillTable(byId("riskBody"), rows.map((r) => `
     <tr>
-      <td class="code">${esc(r.code)}</td>
+      <td class="code"><span class="plate">${esc(r.code)}</span></td>
       <td>${esc(r.label)}</td>
       <td class="num center">${fmtNum(r.balance)} ${esc(r.unit)}</td>
       <td class="num center">${fmtNum(r.per_day, 2)}</td>
@@ -612,7 +612,7 @@ function paintReorder(showValue) {
   byId("reorderPanel").hidden = rows.length === 0;
   fillTable(byId("reorderBody"), rows.map((r) => `
     <tr>
-      <td class="code">${esc(r.code)}</td>
+      <td class="code"><span class="plate">${esc(r.code)}</span></td>
       <td>${esc(r.label)}</td>
       <td class="num center">${fmtNum(r.balance)}</td>
       <td class="num center"><b>${fmtNum(r.suggest_qty)}</b> ${esc(r.unit)}</td>
@@ -655,7 +655,7 @@ function paintStagnant(showValue) {
   byId("stagnantPanel").hidden = rows.length === 0 || !showValue;
   fillTable(byId("stagnantBody"), rows.map((r) => `
     <tr>
-      <td class="code">${esc(r.code)}</td>
+      <td class="code"><span class="plate">${esc(r.code)}</span></td>
       <td>${esc(r.label)}</td>
       <td class="num center">${fmtNum(r.balance)}</td>
       <td>${r.last_out ? fmtDate(r.last_out) : "لم يُصرف مطلقًا"}</td>
@@ -680,7 +680,7 @@ function paintRecent() {
   fillTable(byId("dashRecentBody"), (data.recent || []).map((t) => `
     <tr>
       <td><span class="pill ${t.type}">${t.type === "in" ? "وارد" : "صرف"}</span></td>
-      <td class="code">${esc(t.voucher_no)}</td>
+      <td class="code"><span class="plate">${esc(t.voucher_no)}</span></td>
       <td>${fmtDate(t.txn_date)}</td>
       <td>${esc(t.item_name)}</td>
       <td class="num center">${fmtNum(t.qty)}</td>

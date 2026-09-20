@@ -148,7 +148,7 @@ function paintTable() {
     const diff = value === undefined ? "" : value - i.balance;
     return `
     <tr>
-      <td class="code">${esc(i.code)}</td>
+      <td class="code"><span class="plate">${esc(i.code)}</span></td>
       <td>${esc(itemLabel(i))}</td>
       <td class="num center">${fmtNum(i.balance)}</td>
       <td class="center"><input type="number" min="0" inputmode="numeric" style="max-width:110px"
@@ -259,7 +259,7 @@ async function showDetail(id, title) {
         <thead><tr><th>الكود</th><th>الصنف</th><th class="center">النظام</th>
           <th class="center">الفعلي</th><th class="center">الفرق</th></tr></thead>
         <tbody>${rows.map((l) => `<tr>
-          <td class="code">${esc(l.item_code)}</td><td>${esc(l.item_name)}</td>
+          <td class="code"><span class="plate">${esc(l.item_code)}</span></td><td>${esc(l.item_name)}</td>
           <td class="num center">${fmtNum(l.system_qty)}</td>
           <td class="num center">${fmtNum(l.counted_qty)}</td>
           <td class="num center">${diffCell(l.diff)}</td></tr>`).join("")}</tbody></table></div>`,

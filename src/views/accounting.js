@@ -165,7 +165,7 @@ async function runValuation(from, to) {
     ],
     rows: (data.rows || []).map((r) => `
       <tr>
-        <td class="code">${esc(r.code)}</td>
+        <td class="code"><span class="plate">${esc(r.code)}</span></td>
         <td>${esc(r.label)}</td>
         <td class="num center">${fmtNum(r.opening_qty)}</td>
         <td class="num">${moneyHtml(r.opening_val, { blankWhenZero: true })}</td>
@@ -284,12 +284,12 @@ async function runPurchases(from, to) {
       const diff = Number(r.diff || 0);
       return `
       <tr>
-        <td class="code">${esc(r.voucher_no)}</td>
+        <td class="code"><span class="plate">${esc(r.voucher_no)}</span></td>
         <td>${fmtDate(r.txn_date)}</td>
         <td>${esc(r.party || "-")}</td>
         <td class="num center">${fmtNum(r.lines)}</td>
         <td class="num">${moneyHtml(r.voucher_value, { blankWhenZero: true })}</td>
-        <td class="code">${esc(r.invoice_no || "-")}</td>
+        <td class="code"><span class="plate">${esc(r.invoice_no || "-")}</span></td>
         <td class="num">${r.invoice_amount === null || r.invoice_amount === undefined
             ? `<span class="val-none">${EMPTY}</span>` : moneyHtml(r.invoice_amount)}</td>
         <td class="num">${r.invoice_amount === null || r.invoice_amount === undefined
@@ -415,7 +415,7 @@ async function runPrices() {
       ...missing.map((r) => `
         <tr>
           <td><span class="pill zero">بلا سعر</span></td>
-          <td class="code">${esc(r.code)}</td>
+          <td class="code"><span class="plate">${esc(r.code)}</span></td>
           <td>${esc(r.label)}</td>
           <td class="num center">${fmtNum(r.balance)}</td>
           <td class="num">-</td><td class="num">-</td><td class="num">-</td>
@@ -423,7 +423,7 @@ async function runPrices() {
       ...gap.map((r) => `
         <tr>
           <td><span class="pill low">فرق سعر</span></td>
-          <td class="code">${esc(r.code)}</td>
+          <td class="code"><span class="plate">${esc(r.code)}</span></td>
           <td>${esc(r.label)}</td>
           <td class="num center">${fmtNum(r.balance)}</td>
           <td class="num">${moneyHtml(r.unit_price, { blankWhenZero: true })}</td>

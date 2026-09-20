@@ -335,7 +335,7 @@ export function makeVoucherView(type) {
       const rows = await txns.vouchers(type, 20);
       fillTable(byId(`v_log_${type}`), rows.map((v) => `
         <tr>
-          <td class="code">${esc(v.voucher_no)}</td>
+          <td class="code"><span class="plate">${esc(v.voucher_no)}</span></td>
           <td>${fmtDate(v.txn_date)}</td>
           <td class="num center">${fmtNum(v.lines)}</td>
           <td class="num center">${fmtNum(v.qty)}</td>
