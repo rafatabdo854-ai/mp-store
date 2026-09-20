@@ -141,6 +141,16 @@ export async function changePassword(newPassword) {
  * دور admin. الآن الدور يُكتب على الخادم بعد التأكد من أن الطالب يملك
  * manage_users فعلًا (راجع supabase/functions/create-user/index.ts).
  */
+
+/**
+ * مسار الدالة المنشورة على Supabase.
+ *
+ * الحرف الكبير مقصود: الـslug يُثبَّت وقت إنشاء الدالة ولا يتغير بعدها
+ * حتى لو عُدِّل حقل الاسم في الداشبورد، والمسار حسّاس لحالة الحروف.
+ * لا تصحّحه إلى create-user إلا إذا أعدت نشر الدالة بذلك الاسم.
+ */
+const CREATE_USER_FN = "Create-user";
+
 export async function createUser({ username, fullName, password, role }) {
   const { data: { session } } = await db().auth.getSession();
   if (!session) throw new AppError("انتهت الجلسة. سجّل الدخول من جديد.", "AUTH");
@@ -148,7 +158,7 @@ export async function createUser({ username, fullName, password, role }) {
   const { url } = resolveConfig();
   let res;
   try {
-    res = await fetch(`${url}/functions/v1/create-user`, {
+    res = await fetch(`${url}/functions/v1/${CREATE_USER_FN}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -168,61 +178,6 @@ export async function createUser({ username, fullName, password, role }) {
     throw new AppError(out.error || "تعذّر إنشاء الحساب", "CREATE_USER");
   }
   return out;
-}
-
-/* ---------- وقت بدء الجلسة (يستخدمه session-guard لسقف الـ 12 ساعة) ---------- */
-const LOGIN_AT_KEY = "mpstore.loginAt";
-function markLoginNow() {
-  try { localStorage.setItem(LOGIN_AT_KEY, String(Date.now())); } catch { /* تجاهل */ }
-}
-function clearLoginAt() {
-  try { localStorage.removeItem(LOGIN_AT_KEY); } catch { /* تجاهل */ }
-}
-
-export const currentUser = () => get("profile");
-export async function signOut() {
-  try { await db().auth.signOut(); } finally {
-    clearCache();
-    clearLoginAt();
-    set({ session: null, profile: null, items: [], summary: null });
-  }
-}
-
-export async function loadProfile(userId) {
-  const rows = await run(db().from("profiles").select("*").eq("id", userId).limit(1));
-  return rows?.[0] || null;
-}
-
-/** يستعيد الجلسة المحفوظة عند فتح الصفحة (لا يحتاج تسجيل دخول كل مرة). */
-export async function restoreSession() {
-  const { data } = await db().auth.getSession();
-  if (!data?.session) return null;
-  const profile = await loadProfile(data.session.user.id);
-  if (!profile || !profile.is_active) { await signOut(); return null; }
-  // جلسة مُستعادة (تحديث صفحة) ولم يُسجَّل وقت دخول محليًا بعد — سجّله الآن
-  // حتى يعمل سقف الجلسة القصوى بشكل صحيح، بدل أن يُمنح المستخدم 12 ساعة جديدة
-  // في كل مرة يُحدّث فيها الصفحة.
-  if (!localStorage.getItem(LOGIN_AT_KEY)) markLoginNow();
-  set({ session: data.session, profile });
-  return profile;
-}
-
-export async function changePassword(newPassword) {
-  const { error } = await db().auth.updateUser({ password: newPassword });
-  if (error) throw translateError(error);
-}
-
-/** إنشاء مستخدم جديد (يُستدعى من شاشة الإعدادات — المدير فقط). */
-export async function createUser({ username, fullName, password, role }) {
-  // عميل منفصل حتى لا يُستبدَل تسجيل دخول المدير الحالي بالمستخدم الجديد
-  const temp = makeTempClient();
-  const { data, error } = await temp.auth.signUp({
-    email: toEmail(username),
-    password,
-    options: { data: { username, full_name: fullName, role } },
-  });
-  if (error) throw translateError(error);
-  return data.user;
 }
 
 /* ---------- وقت بدء الجلسة (يستخدمه session-guard لسقف الـ 12 ساعة) ---------- */
