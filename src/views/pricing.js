@@ -134,7 +134,7 @@ function paint() {
     <tr>
       <td class="code">${esc(i.code)}</td>
       <td>${esc(itemLabel(i))}</td>
-      <td class="num center">${fmtNum(i.balance)}</td>
+      <td class="num center span-row">${fmtNum(i.balance)}</td>
       <td>${editable
         ? `<input type="number" min="0" step="0.01" style="max-width:120px"
              data-price-field="base_price" data-id="${esc(i.id)}" value="${Number(i.base_price)}">`
