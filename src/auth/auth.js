@@ -1,5 +1,6 @@
 /** تسجيل الدخول والخروج وجلب بيانات المستخدم. */
-import { db, loginDomain, run, translateError, AppError, makeTempClient } from "../data/client.js";
+import { db, loginDomain, run, translateError, AppError } from "../data/client.js";
+import { resolveConfig } from "../config.js";
 import { set, get, clearCache } from "../core/store.js";
 
 /** اسم المستخدم يتحوّل داخليًا إلى بريد حتى يعمل نظام Supabase Auth. */
@@ -62,12 +63,13 @@ export async function signIn(username, password) {
 
   const cleanUsername = String(username).trim().toLowerCase();
 
-  // القفل الحقيقي مصدره الخادم: مرتبط باسم المستخدم نفسه، يعمل حتى لو
-  // بدّل المهاجم جهازه أو مسح بيانات المتصفح.
+  // القفل الحقيقي مصدره الخادم: مرتبط باسم المستخدم ومصدر الطلب معًا،
+  // فيعمل حتى لو مسح المهاجم بيانات المتصفح، ولا يمكّنه في الوقت نفسه
+  // من إقفال حساب شخص آخر من جهازه هو (راجع sql/18_login_guard_ip.sql).
   try {
     const { data: locked } = await db().rpc("is_locked", { p_username: cleanUsername });
     if (locked) {
-      throw new AppError("هذا الحساب مقفول مؤقتًا بسبب محاولات فاشلة متكررة. حاول لاحقًا.", "LOCKED");
+      throw new AppError("محاولات الدخول من هذا الجهاز موقوفة مؤقتًا. حاول بعد قليل.", "LOCKED");
     }
   } catch (err) {
     if (err instanceof AppError && err.code === "LOCKED") throw err;
@@ -99,6 +101,85 @@ export async function signIn(username, password) {
   return profile;
 }
 
+export async function signOut() {
+  try { await db().auth.signOut(); } finally {
+    clearCache();
+    clearLoginAt();
+    set({ session: null, profile: null, items: [], summary: null });
+  }
+}
+
+export async function loadProfile(userId) {
+  const rows = await run(db().from("profiles").select("*").eq("id", userId).limit(1));
+  return rows?.[0] || null;
+}
+
+/** يستعيد الجلسة المحفوظة عند فتح الصفحة (لا يحتاج تسجيل دخول كل مرة). */
+export async function restoreSession() {
+  const { data } = await db().auth.getSession();
+  if (!data?.session) return null;
+  const profile = await loadProfile(data.session.user.id);
+  if (!profile || !profile.is_active) { await signOut(); return null; }
+  // جلسة مُستعادة (تحديث صفحة) ولم يُسجَّل وقت دخول محليًا بعد — سجّله الآن
+  // حتى يعمل سقف الجلسة القصوى بشكل صحيح، بدل أن يُمنح المستخدم 12 ساعة جديدة
+  // في كل مرة يُحدّث فيها الصفحة.
+  if (!localStorage.getItem(LOGIN_AT_KEY)) markLoginNow();
+  set({ session: data.session, profile });
+  return profile;
+}
+
+export async function changePassword(newPassword) {
+  const { error } = await db().auth.updateUser({ password: newPassword });
+  if (error) throw translateError(error);
+}
+
+/**
+ * إنشاء مستخدم جديد — عبر دالة على الخادم، لا signUp من المتصفح.
+ *
+ * كان الإنشاء يتم بمفتاح anon وتُرسل معه role داخل الميتاداتا، وهي
+ * بيانات يملك العميل تغييرها، فكان أي طلب signUp قادرًا على منح صاحبه
+ * دور admin. الآن الدور يُكتب على الخادم بعد التأكد من أن الطالب يملك
+ * manage_users فعلًا (راجع supabase/functions/create-user/index.ts).
+ */
+export async function createUser({ username, fullName, password, role }) {
+  const { data: { session } } = await db().auth.getSession();
+  if (!session) throw new AppError("انتهت الجلسة. سجّل الدخول من جديد.", "AUTH");
+
+  const { url } = resolveConfig();
+  let res;
+  try {
+    res = await fetch(`${url}/functions/v1/create-user`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ username, fullName, password, role }),
+    });
+  } catch {
+    throw new AppError("تعذّر الوصول إلى الخادم. تأكد من الاتصال.", "NETWORK");
+  }
+
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new AppError("دالة إنشاء المستخدمين غير منشورة بعد على الخادم.", "NOT_DEPLOYED");
+    }
+    throw new AppError(out.error || "تعذّر إنشاء الحساب", "CREATE_USER");
+  }
+  return out;
+}
+
+/* ---------- وقت بدء الجلسة (يستخدمه session-guard لسقف الـ 12 ساعة) ---------- */
+const LOGIN_AT_KEY = "mpstore.loginAt";
+function markLoginNow() {
+  try { localStorage.setItem(LOGIN_AT_KEY, String(Date.now())); } catch { /* تجاهل */ }
+}
+function clearLoginAt() {
+  try { localStorage.removeItem(LOGIN_AT_KEY); } catch { /* تجاهل */ }
+}
+
+export const currentUser = () => get("profile");
 export async function signOut() {
   try { await db().auth.signOut(); } finally {
     clearCache();
