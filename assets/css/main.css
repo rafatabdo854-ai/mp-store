@@ -270,10 +270,18 @@ td.center, th.center { text-align: center; }
 .pill .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex: none; }
 
 /* ---------------- الحقول ---------------- */
-.fields { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+/* align-items: end يضع كل حقل على خط القاعدة نفسه، فيقف الزر بمحاذاة
+   الحقول بدل أن يتمدّد ليملأ ارتفاع أطول خلية في الصف — كان زر "عرض"
+   على الهاتف يصير كتلة بارتفاع 110 بكسل لهذا السبب وحده.
+   والحد الأدنى 160 لا 190: شاشة هاتف بعرض 360 تتّسع لعمودين بدل
+   عمود واحد، فينزل ارتفاع لوح الفلاتر إلى النصف. */
+.fields {
+  display: grid; gap: 12px; align-items: end;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field.full { grid-column: 1 / -1; }
-.field label { font-size: .8rem; color: var(--text-mute); font-weight: 500; }
+.field label, .field-spacer { font-size: .8rem; color: var(--text-mute); font-weight: 500; }
 .field .req::after { content: " *"; color: var(--out); }
 
 input, select, textarea {
@@ -390,11 +398,21 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--out); back
 
 .dash-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
 
-.period { display: inline-flex; background: var(--card); border: 1px solid var(--line);
-          border-radius: 999px; padding: 3px; }
+/* شريط التبويبات كبسولة واحدة: حين لا تتّسع التبويبات للعرض تنزل
+   واحدة منها إلى سطر ثانٍ وتظهر معلّقة داخل حدٍّ دائري مصمَّم لسطر
+   واحد. التمرير الأفقي يحفظ الشكل ويُبقي كل التبويبات في المتناول. */
+.period {
+  display: flex; background: var(--card); border: 1px solid var(--line);
+  border-radius: 999px; padding: 3px; max-width: 100%;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; -ms-overflow-style: none;
+  overscroll-behavior-x: contain;
+}
+.period::-webkit-scrollbar { display: none; }
 .period button {
   border: 0; background: transparent; font: inherit; font-size: .82rem;
   padding: 6px 14px; border-radius: 999px; cursor: pointer; color: var(--text-mute);
+  flex: none; white-space: nowrap;
 }
 .period button.on { background: var(--brand); color: #fff; font-weight: 600; }
 .period button:hover:not(.on) { color: var(--text); }
