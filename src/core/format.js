@@ -57,6 +57,16 @@ export function moneyHtml(value, { blankWhenZero = false } = {}) {
          `<span class="val-u">${currency()}</span></span>`;
 }
 
+/**
+ * نفس القاعدة لكن كنص عادي، للمواضع التي تُمرَّر عبر esc أو تذهب
+ * إلى تصدير أو طباعة أو رسالة — حيث لا يصلح HTML.
+ */
+export function moneyText(value, { blankWhenZero = false } = {}) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || (blankWhenZero && n === 0)) return EMPTY;
+  return `${fmtNum(n, 2)} ${currency()}`;
+}
+
 /** عدد بلا وحدة، بنفس قواعد العرض أعلاه. */
 export function numHtml(value, { digits = 0, blankWhenZero = false } = {}) {
   const n = Number(value);
