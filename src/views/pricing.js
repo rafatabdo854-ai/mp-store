@@ -113,11 +113,11 @@ function paint() {
   // التقدّم، والعدّاد الذي ينخفض يقيس ما تبقّى من العبء
   byId("prCards").innerHTML = `
     <div class="stat money">
-      <div class="label">قيمة المخزون المعروض</div>
+      <div class="label">قيمة المخزون</div>
       <div class="value">${moneyHtml(total(), { blankWhenZero: true })}</div>
     </div>
     <div class="stat">
-      <div class="label">عدد الأصناف</div>
+      <div class="label">الأصناف</div>
       <div class="value">${fmtNum(list.length)}</div>
     </div>
     <div class="stat${done ? "" : " warn"}">
