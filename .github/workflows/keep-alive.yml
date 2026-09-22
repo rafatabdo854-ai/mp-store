@@ -1,0 +1,38 @@
+name: Supabase Keep Alive
+
+# يمنع Supabase من إيقاف المشروع بسبب عدم النشاط
+# بيبعت طلب قراءة بسيط جدًا لقاعدة البيانات كل 3 أيام
+
+on:
+  schedule:
+    # 06:00 UTC كل 3 أيام
+    - cron: '0 6 */3 * *'
+  workflow_dispatch:   # يسمح بالتشغيل اليدوي من تبويب Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_TABLE: ${{ secrets.SUPABASE_TABLE }}
+        run: |
+          set -u
+          code=$(curl -s -o /tmp/response.txt -w "%{http_code}" \
+            "${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=*&limit=1" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
+
+          echo "HTTP status: ${code}"
+          echo "Response:"
+          cat /tmp/response.txt
+          echo ""
+
+          if [ "${code}" != "200" ]; then
+            echo "::error::Ping failed with status ${code}"
+            exit 1
+          fi
+
+          echo "Supabase project pinged successfully."
