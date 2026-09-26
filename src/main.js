@@ -42,7 +42,7 @@ const TITLES = {
 const closeNav = () => document.body.classList.remove("nav-open");
 
 const VIEWS = {
-  dashboard:  { render: dashboard.render,     permission: null },
+  dashboard:  { render: dashboard.render,     permission: "view_dashboard" },
   items:      { render: itemsView.render,     permission: null },
   voucherIn:  { render: voucherIn.render,     permission: "voucher_in" },
   voucherOut: { render: voucherOut.render,    permission: "voucher_out" },
@@ -169,12 +169,15 @@ function parseHash() {
   const raw = location.hash.replace(/^#/, "");
   const [view, query] = raw.split("?");
   return {
-    view: view || "dashboard",
+    view: view || homeView(),
     params: Object.fromEntries(new URLSearchParams(query || "")),
   };
 }
 
 const currentView = () => parseHash().view;
+
+/** الشاشة الافتراضية: اللوحة لمن يراها، وإلا الأصناف (متاحة للجميع). */
+function homeView() { return can("view_dashboard") ? "dashboard" : "items"; }
 
 /** تُستخدمها الشاشات للانتقال لشاشة أخرى بمرشّح جاهز. */
 export function go(view, params = {}) {
@@ -185,9 +188,9 @@ window.mpGo = go;
 
 function routeFromHash() {
   let { view, params } = parseHash();
-  if (!VIEWS[view]) { view = "dashboard"; params = {}; }
+  if (!VIEWS[view]) { view = homeView(); params = {}; }
   const perm = VIEWS[view].permission;
-  if (perm && !can(perm)) { toastError("ليس لديك صلاحية لفتح هذه الشاشة"); view = "dashboard"; params = {}; }
+  if (perm && !can(perm)) { toastError("ليس لديك صلاحية لفتح هذه الشاشة"); view = homeView(); params = {}; }
 
   $$("[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   byId("pageTitle").textContent = TITLES[view] || "";
