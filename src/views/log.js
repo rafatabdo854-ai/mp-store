@@ -59,8 +59,11 @@ function build() {
   byId("logFrom").addEventListener("change", (e) => { state.from = e.target.value; state.page = 0; load(); });
   byId("logTo").addEventListener("change", (e) => { state.to = e.target.value; state.page = 0; load(); });
   byId("logReset").addEventListener("click", () => {
-    state = { ...state, type: "", from: "", to: "", search: "", project: "", page: 0 };
-    ["logSearch", "logType", "logProject", "logFrom", "logTo"].forEach((id) => { byId(id).value = ""; });
+    const allowed = allowedTypes();
+    const type = allowed.length === 1 ? allowed[0] : "";
+    state = { ...state, type, from: "", to: "", search: "", project: "", page: 0 };
+    ["logSearch", "logProject", "logFrom", "logTo"].forEach((id) => { byId(id).value = ""; });
+    byId("logType").value = type;
     load();
   });
   byId("logPrev").addEventListener("click", () => { if (state.page > 0) { state.page--; load(); } });
@@ -69,6 +72,17 @@ function build() {
   });
   byId("logExport").addEventListener("click", exportCurrent);
   byId("logPrint").addEventListener("click", printCurrent);
+  // الأنواع المسموح برؤيتها — قاعدة البيانات تُخفي الباقي أصلًا (24_log_visibility.sql)
+  const typeSel = byId("logType");
+  const allowed = allowedTypes();
+  [...typeSel.options].forEach((o) => { if (o.value && !allowed.includes(o.value)) o.remove(); });
+  if (allowed.length === 1) {
+    typeSel.querySelector('option[value=""]')?.remove();
+    typeSel.value = allowed[0];
+    state.type = allowed[0];
+    typeSel.disabled = true;
+  }
+
   gate(byId("logExport"), "export_log");
   gate(byId("logPrint"), "print_log");
 
@@ -89,10 +103,19 @@ function build() {
   built = true;
 }
 
+/** in / out حسب صلاحيتي view_log_in و view_log_out */
+function allowedTypes() {
+  return ["in", "out"].filter((t) => can(`view_log_${t}`));
+}
+
 export function render(params = {}) {
   if (!built) build();
   if (Object.keys(params).length) {
-    state = { ...state, type: params.type || "", project: params.project || "",
+    const allowed = allowedTypes();
+    let type = params.type || "";
+    if (allowed.length === 1) type = allowed[0];            // لا يُطلب نوع ممنوع
+    else if (type && !allowed.includes(type)) type = "";
+    state = { ...state, type, project: params.project || "",
               search: params.search || "", from: params.from || "", to: params.to || "", page: 0 };
     byId("logType").value = state.type;
     byId("logSearch").value = state.search;
