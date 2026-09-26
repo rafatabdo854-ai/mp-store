@@ -175,12 +175,37 @@ export const stocktakes = {
 
 /* ------------------------- القوائم والإعدادات ------------------------- */
 export const lists = {
-  suppliers()  { return run(db().from("suppliers").select("name").order("name")); },
-  projects()   { return run(db().from("projects").select("name,status").order("name")); },
+  suppliers()  { return run(db().from("suppliers").select("*").order("name")); },
+  projects()   { return run(db().from("projects").select("*").order("name")); },
   categories() { return run(db().from("categories").select("name,prefix").order("name")); },
-  addSupplier(name) { return run(db().from("suppliers").upsert({ name }).select()); },
-  addProject(name)  { return run(db().from("projects").upsert({ name }).select()); },
+  addSupplier(name) { return directory.saveSupplier(null, { name }); },
+  addProject(name)  { return directory.saveProject(null, { name }); },
   addCategory(name, prefix) { return run(db().from("categories").upsert({ name, prefix }).select()); },
+};
+
+/* ------------------------- الموردون والمشاريع ------------------------- */
+// كل تعديل عبر دالة على الخادم تفحص الصلاحية وتسجّل في التدقيق
+// (23_suppliers_projects.sql). تعديل الاسم يُحدِّث الأذون القديمة معه.
+export const directory = {
+  /** kind: supplier | project → [{name, vouchers, qty, last_date}] */
+  usage(kind) { return run(db().rpc("directory_usage", { p_kind: kind })); },
+
+  saveSupplier(oldName, { name, phone = "", notes = "" }) {
+    return run(db().rpc("save_supplier",
+      { p_old_name: oldName, p_name: name, p_phone: phone, p_notes: notes }));
+  },
+  blockSupplier(name, blocked, reason = "") {
+    return run(db().rpc("set_supplier_blocked", { p_name: name, p_blocked: blocked, p_reason: reason }));
+  },
+  deleteSupplier(name) { return run(db().rpc("delete_supplier", { p_name: name })); },
+
+  saveProject(oldName, { name, notes = "" }) {
+    return run(db().rpc("save_project", { p_old_name: oldName, p_name: name, p_notes: notes }));
+  },
+  blockProject(name, blocked, reason = "") {
+    return run(db().rpc("set_project_blocked", { p_name: name, p_blocked: blocked, p_reason: reason }));
+  },
+  deleteProject(name) { return run(db().rpc("delete_project", { p_name: name })); },
 };
 
 export const users = {
