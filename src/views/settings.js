@@ -1,4 +1,4 @@
-/** الإعدادات — المستخدمون والقوائم والنسخ الاحتياطي وسجل التدقيق. */
+/** الإعدادات — الحساب والمستخدمون وإعدادات النظام والنسخ الاحتياطي. */
 import { byId, esc, fillTable, onClick } from "../core/dom.js";
 import { fmtNum } from "../core/format.js";
 import { get, set } from "../core/store.js";
@@ -42,21 +42,6 @@ function build() {
       <div class="hint">الدور يحدّد ما يستطيع المستخدم فعله. التغيير يسري فور تسجيل الدخول التالي.</div>
     </div>` : ""}
 
-    <div class="panel">
-      <h2>الفئات</h2>
-      <div class="fields">
-        <div class="field" id="fldCategory">
-          <label for="newCategory">إضافة فئة</label>
-          <div style="display:flex;gap:6px">
-            <input id="newCategory" placeholder="اسم الفئة">
-            <input id="newPrefix" placeholder="ACB" style="max-width:90px">
-            <button class="btn ghost small" id="addCategory">إضافة</button>
-          </div>
-        </div>
-      </div>
-      <div class="hint" id="listsSummary"></div>
-      <div class="chips" id="listsChips"></div>
-    </div>
 
     ${can("manage_settings") ? `
     <div class="panel">
@@ -113,8 +98,6 @@ function build() {
   byId("btnAddUser") && (byId("btnAddUser").onclick = userDialog);
   byId("btnSaveSettings") && (byId("btnSaveSettings").onclick = saveSettings);
 
-  byId("addCategory").onclick = () => addToList("category");
-  gate(byId("fldCategory"), "add_category");
   // لوحة الصيانة كلها تختفي إن لم يبقَ فيها زر
   if (!byId("btnBackup") && !byId("btnRecalc")) {
     byId("pnlMaintenance").hidden = true;
@@ -153,9 +136,6 @@ function build() {
 
 export function render() {
   if (!built) build();
-  byId("listsSummary").textContent =
-    `${fmtNum(get("categories").length)} فئة — الموردون والمشاريع لهم شاشات مستقلة في القائمة`;
-  paintChips();
   if (can("manage_users")) loadUsers();
   if (can("manage_settings")) {
     const s = get("settings")?.stock || {};
@@ -164,15 +144,6 @@ export function render() {
   }
 }
 
-/** يعرض ما هو مسجَّل فعلًا حتى لا يضيف المستخدم اسمًا مكرّرًا بصيغة مختلفة. */
-function paintChips() {
-  const group = (title, values) => values.length
-    ? `<div class="chip-group"><span class="chip-title">${esc(title)}</span>
-        ${values.map((v) => `<span class="chip">${esc(v)}</span>`).join("")}</div>`
-    : "";
-  byId("listsChips").innerHTML =
-    group("الفئات", get("categories").map((c) => `${c.name} (${c.prefix})`));
-}
 
 async function loadUsers() {
   try {
@@ -287,25 +258,6 @@ function passwordDialog() {
   });
 }
 
-async function addToList(kind) {
-  const map = {
-    supplier: { input: "newSupplier", fn: (v) => lists.addSupplier(v), key: "suppliers", load: lists.suppliers },
-    project:  { input: "newProject",  fn: (v) => lists.addProject(v),  key: "projects",  load: lists.projects },
-    category: { input: "newCategory", fn: (v) => lists.addCategory(v, byId("newPrefix").value.trim().toUpperCase() || "GEN"),
-                key: "categories", load: lists.categories },
-  }[kind];
-  const value = byId(map.input).value.trim();
-  if (!value) return toastError("أدخل الاسم أولًا");
-  try {
-    await map.fn(value);
-    const fresh = await map.load();
-    set({ [map.key]: fresh });
-    byId(map.input).value = "";
-    if (kind === "category") byId("newPrefix").value = "";
-    toast("تمت الإضافة");
-    render();
-  } catch (err) { toastError(err.message); }
-}
 
 async function saveSettings() {
   try {

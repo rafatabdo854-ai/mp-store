@@ -138,9 +138,11 @@ function itemForm(item) {
       <form id="itemForm" class="fields" novalidate>
         <div class="field">
           <label class="req" for="f_category">الفئة</label>
-          <input id="f_category" data-field="category" list="catList" ${priceOnly ? "disabled" : ""}
-                 value="${esc(item?.category || "")}" placeholder="اختر أو اكتب فئة جديدة">
-          <datalist id="catList">${known.map((c) => `<option value="${esc(c)}">`).join("")}</datalist>
+          <select id="f_category" data-field="category" ${priceOnly ? "disabled" : ""}>
+            <option value="">— اختر الفئة —</option>
+            ${known.map((c) => `<option value="${esc(c)}" ${item?.category === c ? "selected" : ""}>${esc(c)}</option>`).join("")}
+          </select>
+          <div class="hint">الفئات تُضاف وتُعدَّل من شاشة «الفئات»</div>
           <div class="field-error" data-error-for="category"></div>
         </div>
         <div class="field">
@@ -237,10 +239,6 @@ function itemForm(item) {
         await withBusy(button, async () => {
           try {
             if (isNew) {
-              if (!get("categories").some((c) => c.name === values.category)) {
-                await lists.addCategory(values.category,
-                  values.category.replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase() || "GEN").catch(() => {});
-              }
               const created = await itemsRepo.create({
                 ...values,
                 threshold: Number(values.threshold),
