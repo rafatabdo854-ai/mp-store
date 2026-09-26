@@ -19,6 +19,7 @@ import * as dashboard from "./views/dashboard.js";
 import * as itemsView from "./views/items.js";
 import { makeVoucherView } from "./views/voucher.js";
 import { makeDirectoryView } from "./views/directory.js";
+import * as categoriesView from "./views/categories.js";
 import * as logView from "./views/log.js";
 import * as reportsView from "./views/reports.js";
 import * as pricingView from "./views/pricing.js";
@@ -37,7 +38,7 @@ const projectsView  = makeDirectoryView("project");
 /** عنوان كل شاشة كما يظهر في الشريط العلوي */
 const TITLES = {
   dashboard: "لوحة القيادة", items: "الأصناف", voucherIn: "إذن وارد", voucherOut: "إذن صرف",
-  log: "سجل الحركات", reports: "التقارير", suppliers: "الموردون", projects: "المشاريع", pricing: "التسعير", accounting: "المحاسبة",
+  log: "سجل الحركات", reports: "التقارير", suppliers: "الموردون", projects: "المشاريع", categories: "الفئات", pricing: "التسعير", accounting: "المحاسبة",
   stocktake: "الجرد", audit: "سجل التدقيق", roles: "الأدوار والصلاحيات",
   settings: "الإعدادات",
 };
@@ -53,6 +54,7 @@ const VIEWS = {
   reports:    { render: reportsView.render,   permission: "view_reports" },
   suppliers:  { render: suppliersView.render, permission: "view_suppliers" },
   projects:   { render: projectsView.render,  permission: "view_projects" },
+  categories: { render: categoriesView.render, permission: "view_categories" },
   pricing:    { render: pricingView.render,   permission: "view_pricing" },
   accounting: { render: accountingView.render, permission: "accounting" },
   stocktake:  { render: stocktakeView.render, permission: "stocktake" },
