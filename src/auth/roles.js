@@ -59,6 +59,8 @@ export function canVoucher(type) {
 export const can = (action) => {
   if (action === "voucher_in")  return canVoucher("in");
   if (action === "voucher_out") return canVoucher("out");
+  // لوحة القيادة: مفتاح المستخدم وحده (profiles.can_view_dashboard)
+  if (action === "view_dashboard") return get("profile")?.can_view_dashboard !== false;
   // رؤية الأسعار: صلاحية الدور + مفتاح المستخدم profiles.can_view_price
   if (action === "view_pricing") {
     return myPermissions().includes("view_pricing") && get("profile")?.can_view_price !== false;
