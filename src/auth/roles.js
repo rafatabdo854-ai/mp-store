@@ -44,7 +44,23 @@ export function myPermissions() {
   return FALLBACK[role()] || [];
 }
 
-export const can = (action) => myPermissions().includes(action);
+/**
+ * صلاحية الوارد/الصرف لكل مستخدم (profiles.can_receive / can_issue)
+ * فوق صلاحية الدور create_voucher. القيمة الغائبة تُعامل كمسموح حتى لا
+ * يُقفل أحد قبل تشغيل ترحيل قاعدة البيانات — والخادم هو من يمنع فعليًا.
+ */
+export function canVoucher(type) {
+  if (!myPermissions().includes("create_voucher")) return false;
+  const flag = type === "in" ? "can_receive" : "can_issue";
+  return get("profile")?.[flag] !== false;
+}
+
+/** صلاحيتا voucher_in / voucher_out مشتقّتان لا تُخزَّنان في الجداول. */
+export const can = (action) => {
+  if (action === "voucher_in")  return canVoucher("in");
+  if (action === "voucher_out") return canVoucher("out");
+  return myPermissions().includes(action);
+};
 
 /** تُستدعى من main.js بعد الدخول. تفشل بهدوء وتترك المصفوفة الاحتياطية. */
 export function applyPermissions(list) {
