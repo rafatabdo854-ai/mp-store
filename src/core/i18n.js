@@ -625,6 +625,21 @@ const EN = {
   "رجوع الكل لحسب الدور": "Reset all to role",
   "تم حفظ الصلاحية": "Permission saved",
 
+  // ---------- الفئات ----------
+  "البادئة": "Prefix",
+  "المؤرشف": "Archived",
+  "إجمالي الرصيد": "Total balance",
+  "تعديل الفئة": "Edit category",
+  "أدخل اسم الفئة": "Enter the category name",
+  "أدخل البادئة": "Enter the prefix",
+  "من 2 إلى 6 حروف إنجليزية أو أرقام": "2 to 6 English letters or digits",
+  "توجد فئة بهذا الاسم": "A category with this name exists",
+  "تأكيد التعديل على الأصناف": "Confirm changes to items",
+  "تطبيق": "Apply",
+  "حذف فئة": "Delete category",
+  "بحث بالاسم أو البادئة": "Search by name or prefix",
+  "لا توجد فئات بعد": "No categories yet",
+
   // ---------- التقارير ----------
   "اختر التقرير": "Choose a report",
   "نوع التقرير": "Report type",
