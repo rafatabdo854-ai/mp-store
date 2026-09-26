@@ -32,6 +32,7 @@ const USER_FLAGS = {
   can_receive:    "إذن وارد",
   can_issue:      "إذن صرف",
   can_view_price: "رؤية الأسعار",
+  can_view_dashboard: "لوحة القيادة",
 };
 
 function build() {
@@ -67,7 +68,7 @@ function build() {
         <table>
           <thead><tr><th>المستخدم</th><th>الدور</th>
             <th class="center">إذن وارد</th><th class="center">إذن صرف</th>
-            <th class="center">رؤية الأسعار</th>
+            <th class="center">رؤية الأسعار</th><th class="center">لوحة القيادة</th>
             <th class="center">الحالة</th>
             ${can("view_presence") ? `<th class="center">الحضور</th>` : ""}</tr></thead>
           <tbody id="rbUsers"></tbody>
@@ -321,7 +322,7 @@ async function paintUsers() {
   try {
     rows = await users.list();
   } catch (err) {
-    byId("rbUsers").innerHTML = `<tr><td colspan="6" class="empty">${esc(err.message)}</td></tr>`;
+    byId("rbUsers").innerHTML = `<tr><td colspan="7" class="empty">${esc(err.message)}</td></tr>`;
     return;
   }
 
