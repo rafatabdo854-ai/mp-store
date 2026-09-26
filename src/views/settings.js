@@ -43,20 +43,8 @@ function build() {
     </div>` : ""}
 
     <div class="panel">
-      <h2>الموردون والمشاريع والفئات</h2>
+      <h2>الفئات</h2>
       <div class="fields">
-        <div class="field" id="fldSupplier">
-          <label for="newSupplier">إضافة مورد</label>
-          <div style="display:flex;gap:6px">
-            <input id="newSupplier"><button class="btn ghost small" id="addSupplier">إضافة</button>
-          </div>
-        </div>
-        <div class="field" id="fldProject">
-          <label for="newProject">إضافة مشروع</label>
-          <div style="display:flex;gap:6px">
-            <input id="newProject"><button class="btn ghost small" id="addProject">إضافة</button>
-          </div>
-        </div>
         <div class="field" id="fldCategory">
           <label for="newCategory">إضافة فئة</label>
           <div style="display:flex;gap:6px">
@@ -125,11 +113,7 @@ function build() {
   byId("btnAddUser") && (byId("btnAddUser").onclick = userDialog);
   byId("btnSaveSettings") && (byId("btnSaveSettings").onclick = saveSettings);
 
-  byId("addSupplier").onclick = () => addToList("supplier");
-  byId("addProject").onclick  = () => addToList("project");
   byId("addCategory").onclick = () => addToList("category");
-  gate(byId("fldSupplier"), "add_supplier");
-  gate(byId("fldProject"), "add_project");
   gate(byId("fldCategory"), "add_category");
   // لوحة الصيانة كلها تختفي إن لم يبقَ فيها زر
   if (!byId("btnBackup") && !byId("btnRecalc")) {
@@ -170,7 +154,7 @@ function build() {
 export function render() {
   if (!built) build();
   byId("listsSummary").textContent =
-    `${fmtNum(get("suppliers").length)} مورد — ${fmtNum(get("projects").length)} مشروع — ${fmtNum(get("categories").length)} فئة`;
+    `${fmtNum(get("categories").length)} فئة — الموردون والمشاريع لهم شاشات مستقلة في القائمة`;
   paintChips();
   if (can("manage_users")) loadUsers();
   if (can("manage_settings")) {
@@ -187,8 +171,6 @@ function paintChips() {
         ${values.map((v) => `<span class="chip">${esc(v)}</span>`).join("")}</div>`
     : "";
   byId("listsChips").innerHTML =
-    group("الموردون", get("suppliers").map((s) => s.name)) +
-    group("المشاريع", get("projects").map((p) => p.name)) +
     group("الفئات", get("categories").map((c) => `${c.name} (${c.prefix})`));
 }
 

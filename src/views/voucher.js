@@ -143,10 +143,12 @@ export function makeVoucherView(type) {
   function fillLists() {
     byId(`itemList_${type}`).innerHTML = get("items")
       .map((i) => `<option value="${esc(itemFullLabel(i))}">`).join("");
-    byId(`partyList_${type}`).innerHTML = (isIn ? get("suppliers") : get("projects"))
+    // الموقوف / الممنوع لا يُقترح — والخادم يرفضه إن كُتب يدويًا
+    const active = (list) => (list || []).filter((x) => !x.is_blocked);
+    byId(`partyList_${type}`).innerHTML = active(isIn ? get("suppliers") : get("projects"))
       .map((s) => `<option value="${esc(s.name)}">`).join("");
     if (!isIn) {
-      byId(`projectList_${type}`).innerHTML = get("projects")
+      byId(`projectList_${type}`).innerHTML = active(get("projects"))
         .map((p) => `<option value="${esc(p.name)}">`).join("");
     }
   }
