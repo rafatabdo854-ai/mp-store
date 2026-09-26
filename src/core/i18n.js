@@ -597,6 +597,34 @@ const EN = {
   "لا توجد جلسات جرد سابقة": "No previous stocktakes",
   "كشف جرد المخزن": "Store count sheet",
 
+  // ---------- الموردون والمشاريع ----------
+  "الهاتف": "Phone",
+  "أذون الوارد": "Receipts",
+  "آخر تعامل": "Last activity",
+  "ممنوع التعامل": "Blocked",
+  "منع التعامل": "Block",
+  "السماح بالتعامل": "Unblock",
+  "بدون أذون": "No vouchers",
+  "الكل": "All",
+  "الاسم موجود بالفعل": "This name already exists",
+  "تم الحذف": "Deleted",
+  "السبب (يظهر لمن يحاول تسجيل إذن)": "Reason (shown to anyone trying to record a voucher)",
+  "لن يُقبل أي إذن وارد جديد من هذا المورد. الأذون السابقة تبقى كما هي.":
+    "No new receipts will be accepted from this supplier. Past vouchers stay as they are.",
+  "لن يُقبل أي إذن جديد على هذا المشروع. الأذون السابقة وتقاريرها تبقى كما هي.":
+    "No new vouchers will be accepted for this project. Past vouchers and reports stay as they are.",
+  "صلاحيات خاصة": "Custom permissions",
+  "تخصيص": "Customize",
+  "حسب الدور": "By role",
+  "سماح": "Allow",
+  "منع": "Deny",
+  "لهذا المستخدم": "For this user",
+  "مسموح": "Allowed",
+  "ممنوع": "Denied",
+  "بحث في الصلاحيات": "Search permissions",
+  "رجوع الكل لحسب الدور": "Reset all to role",
+  "تم حفظ الصلاحية": "Permission saved",
+
   // ---------- التقارير ----------
   "اختر التقرير": "Choose a report",
   "نوع التقرير": "Report type",
