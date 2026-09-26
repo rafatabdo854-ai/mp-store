@@ -186,13 +186,27 @@ export const lists = {
 export const users = {
   list() {
     return run(db().from("profiles")
-      .select("id,username,full_name,role,is_active,last_seen,can_receive,can_issue,can_view_price,can_view_dashboard")
+      .select("id,username,full_name,role,is_active,last_seen")
       .order("full_name"));
   },
   updateRole(id, role) { return run(db().from("profiles").update({ role }).eq("id", id).select().single()); },
   setActive(id, is_active) { return run(db().from("profiles").update({ is_active }).eq("id", id).select().single()); },
-  /** صلاحية الوارد/الصرف لمستخدم واحد — patch = { can_receive } أو { can_issue } */
-  setVoucherFlag(id, patch) { return run(db().from("profiles").update(patch).eq("id", id).select().single()); },
+};
+
+/* ------------------------- تخصيص صلاحيات مستخدم ------------------------- */
+export const userPerms = {
+  /** كل التخصيصات (لمن يملك manage_users) — [{user_id, permission_code, granted}] */
+  all() { return run(db().from("user_permissions").select("user_id,permission_code,granted")); },
+  /** granted: true = سماح ، false = منع */
+  set(userId, code, granted) {
+    return run(db().from("user_permissions")
+      .upsert({ user_id: userId, permission_code: code, granted }).select());
+  },
+  /** رجوع إلى "حسب الدور" */
+  clear(userId, code) {
+    return run(db().from("user_permissions").delete()
+      .eq("user_id", userId).eq("permission_code", code));
+  },
 };
 
 /* ------------------------- الأدوار والصلاحيات ------------------------- */
