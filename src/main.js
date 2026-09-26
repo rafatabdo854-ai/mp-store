@@ -44,8 +44,8 @@ const closeNav = () => document.body.classList.remove("nav-open");
 const VIEWS = {
   dashboard:  { render: dashboard.render,     permission: null },
   items:      { render: itemsView.render,     permission: null },
-  voucherIn:  { render: voucherIn.render,     permission: "create_voucher" },
-  voucherOut: { render: voucherOut.render,    permission: "create_voucher" },
+  voucherIn:  { render: voucherIn.render,     permission: "voucher_in" },
+  voucherOut: { render: voucherOut.render,    permission: "voucher_out" },
   log:        { render: logView.render,       permission: null },
   reports:    { render: reportsView.render,   permission: null },
   pricing:    { render: pricingView.render,   permission: "view_pricing" },
