@@ -18,6 +18,7 @@ import { APP } from "./config.js";
 import * as dashboard from "./views/dashboard.js";
 import * as itemsView from "./views/items.js";
 import { makeVoucherView } from "./views/voucher.js";
+import { makeDirectoryView } from "./views/directory.js";
 import * as logView from "./views/log.js";
 import * as reportsView from "./views/reports.js";
 import * as pricingView from "./views/pricing.js";
@@ -30,11 +31,13 @@ import { refreshSummary } from "./views/shared.js";
 
 const voucherIn  = makeVoucherView("in");
 const voucherOut = makeVoucherView("out");
+const suppliersView = makeDirectoryView("supplier");
+const projectsView  = makeDirectoryView("project");
 
 /** عنوان كل شاشة كما يظهر في الشريط العلوي */
 const TITLES = {
   dashboard: "لوحة القيادة", items: "الأصناف", voucherIn: "إذن وارد", voucherOut: "إذن صرف",
-  log: "سجل الحركات", reports: "التقارير", pricing: "التسعير", accounting: "المحاسبة",
+  log: "سجل الحركات", reports: "التقارير", suppliers: "الموردون", projects: "المشاريع", pricing: "التسعير", accounting: "المحاسبة",
   stocktake: "الجرد", audit: "سجل التدقيق", roles: "الأدوار والصلاحيات",
   settings: "الإعدادات",
 };
@@ -48,6 +51,8 @@ const VIEWS = {
   voucherOut: { render: voucherOut.render,    permission: "voucher_out" },
   log:        { render: logView.render,       permission: "view_log" },
   reports:    { render: reportsView.render,   permission: "view_reports" },
+  suppliers:  { render: suppliersView.render, permission: "view_suppliers" },
+  projects:   { render: projectsView.render,  permission: "view_projects" },
   pricing:    { render: pricingView.render,   permission: "view_pricing" },
   accounting: { render: accountingView.render, permission: "accounting" },
   stocktake:  { render: stocktakeView.render, permission: "stocktake" },
@@ -160,7 +165,7 @@ async function boot(profile) {
   startSessionGuard(() => location.reload());
 
   routeFromHash();
-  window.addEventListener("hashchange", routeFromHash);
+  window.addEventListener("hashchange", () => { userNavigated = true; routeFromHash(); });
 }
 
 /* ------------------------- التنقّل ------------------------- */
@@ -176,8 +181,19 @@ function parseHash() {
 
 const currentView = () => parseHash().view;
 
-/** الشاشة الافتراضية: اللوحة لمن يراها، وإلا الأصناف (متاحة للجميع). */
-function homeView() { return can("view_dashboard") ? "dashboard" : "items"; }
+/**
+ * الشاشة الافتراضية: أول شاشة مسموحة بهذا الترتيب — اللوحة، ثم إذن الصرف،
+ * ثم إذن الوارد، ثم الأصناف (متاحة للجميع). فمن لا يرى اللوحة يدخل مباشرة
+ * على شاشة عمله بدل رسالة "ليس لديك صلاحية".
+ */
+const HOME_ORDER = ["dashboard", "voucherOut", "voucherIn", "items"];
+function homeView() {
+  return HOME_ORDER.find((v) => !VIEWS[v].permission || can(VIEWS[v].permission)) || "items";
+}
+
+// الرسالة تظهر فقط لو المستخدم نفسه طلب الشاشة (رابط/اختصار/زر)،
+// لا عند فتح التطبيق على رابط قديم محفوظ.
+let userNavigated = false;
 
 /** تُستخدمها الشاشات للانتقال لشاشة أخرى بمرشّح جاهز. */
 export function go(view, params = {}) {
@@ -188,9 +204,15 @@ window.mpGo = go;
 
 function routeFromHash() {
   let { view, params } = parseHash();
-  if (!VIEWS[view]) { view = homeView(); params = {}; }
+  let redirected = false;
+  if (!VIEWS[view]) { view = homeView(); params = {}; redirected = true; }
   const perm = VIEWS[view].permission;
-  if (perm && !can(perm)) { toastError("ليس لديك صلاحية لفتح هذه الشاشة"); view = homeView(); params = {}; }
+  if (perm && !can(perm)) {
+    if (userNavigated) toastError("ليس لديك صلاحية لفتح هذه الشاشة");
+    view = homeView(); params = {}; redirected = true;
+  }
+  // تصحيح الرابط بدون إطلاق hashchange جديد
+  if (redirected || !location.hash) history.replaceState(null, "", `#${view}`);
 
   $$("[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   byId("pageTitle").textContent = TITLES[view] || "";
