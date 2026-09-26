@@ -7,7 +7,7 @@
 import { byId, esc, fillTable, onClick } from "../core/dom.js";
 import { fmtNum, fmtMoney, moneyHtml, moneyText, EMPTY, fmtDate, fmtDateTime, todayISO, toNum } from "../core/format.js";
 import { accounting } from "../data/repo.js";
-import { can } from "../auth/roles.js";
+import { can, gate } from "../auth/roles.js";
 import { toast, toastError, confirmDialog, openModal, withBusy } from "../core/ui.js";
 import { exportRows, exportSheets } from "../data/excel.js";
 import { printTable } from "./print.js";
@@ -90,6 +90,8 @@ function build() {
   };
   byId("acExport").onclick = exportCurrent;
   byId("acPrint").onclick = printCurrent;
+  gate(byId("acExport"), "export_accounting");
+  gate(byId("acPrint"), "print_accounting");
   byId("acRecalc").onclick = recalcCost;
 
   // مطابقة فاتورة عند الضغط على صف إذن شراء

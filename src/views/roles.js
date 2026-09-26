@@ -11,10 +11,9 @@
  */
 import { byId, esc, onClick } from "../core/dom.js";
 import { fmtNum } from "../core/format.js";
-import { rbac, users } from "../data/repo.js";
+import { rbac, users, userPerms } from "../data/repo.js";
 import { can, applyPermissions, applyRoles, roleLabel } from "../auth/roles.js";
 import { toast, toastError, confirmDialog, openModal } from "../core/ui.js";
-import { get, set } from "../core/store.js";
 import { currentUser } from "../auth/auth.js";
 import { onPresence, onlineUsers } from "../core/presence.js";
 
@@ -27,13 +26,8 @@ let stopWatch = null;
 
 const key = (r, p) => `${r}|${p}`;
 
-/** مفاتيح لكل مستخدم في profiles — تُطبَّق فوق صلاحيات دوره */
-const USER_FLAGS = {
-  can_receive:    "إذن وارد",
-  can_issue:      "إذن صرف",
-  can_view_price: "رؤية الأسعار",
-  can_view_dashboard: "لوحة القيادة",
-};
+let overrides = new Map();   // user_id -> Map(permission_code -> granted)
+let userRows = [];
 
 function build() {
   byId("view-roles").innerHTML = `
@@ -67,8 +61,7 @@ function build() {
       <div class="table-wrap">
         <table>
           <thead><tr><th>المستخدم</th><th>الدور</th>
-            <th class="center">إذن وارد</th><th class="center">إذن صرف</th>
-            <th class="center">رؤية الأسعار</th><th class="center">لوحة القيادة</th>
+            <th class="center">صلاحيات خاصة</th>
             <th class="center">الحالة</th>
             ${can("view_presence") ? `<th class="center">الحضور</th>` : ""}</tr></thead>
           <tbody id="rbUsers"></tbody>
@@ -103,28 +96,8 @@ function build() {
     }
   });
 
-  // صلاحية الوارد/الصرف لكل مستخدم — كتابة فورية مثل المصفوفة
-  byId("rbUsers").addEventListener("change", async (e) => {
-    const box = e.target.closest("[data-user-flag]");
-    if (!box) return;
-    const id = box.dataset.userFlag;
-    const flag = box.dataset.flag;               // can_receive | can_issue
-    const wanted = box.checked;
-    box.disabled = true;
-    try {
-      await users.setVoucherFlag(id, { [flag]: wanted });
-      toast(wanted ? "تم منح الصلاحية" : "تم سحب الصلاحية");
-      if (id === currentUser()?.id) {
-        set({ profile: { ...get("profile"), [flag]: wanted } });
-        toast("تغيّرت صلاحياتك — حدّث الصفحة لتطبيق التغيير على القائمة");
-      }
-    } catch (err) {
-      box.checked = !wanted;                     // الخادم رفض — أعد المربع لحقيقته
-      toastError(err.message);
-    } finally {
-      box.disabled = !can("manage_users");
-    }
-  });
+  // تخصيص صلاحيات مستخدم بعينه
+  onClick(byId("rbUsers"), "[data-user-perms]", (btn) => userPermsDialog(btn.dataset.userPerms));
 
   built = true;
 }
@@ -321,11 +294,13 @@ async function paintUsers() {
   let rows = [];
   try {
     rows = await users.list();
+    await loadOverrides();
   } catch (err) {
-    byId("rbUsers").innerHTML = `<tr><td colspan="7" class="empty">${esc(err.message)}</td></tr>`;
+    byId("rbUsers").innerHTML = `<tr><td colspan="4" class="empty">${esc(err.message)}</td></tr>`;
     return;
   }
 
+  userRows = rows;
   const me = currentUser()?.id;
   lastSeenMap.clear();
   rows.forEach((u) => lastSeenMap.set(u.id, u.last_seen));
@@ -343,12 +318,12 @@ async function paintUsers() {
             </option>`).join("")}
         </select>
       </td>
-      ${Object.entries(USER_FLAGS).map(([f, label]) => `
       <td class="center">
-        <input type="checkbox" data-user-flag="${esc(u.id)}" data-flag="${f}"
-               aria-label="${label}"
-               ${u[f] !== false ? "checked" : ""} ${can("manage_users") ? "" : "disabled"}>
-      </td>`).join("")}
+        <button class="btn ghost small" data-user-perms="${esc(u.id)}"
+                ${can("manage_users") ? "" : "disabled"}>
+          تخصيص${overrideCount(u.id) ? ` <span class="pill">${fmtNum(overrideCount(u.id))}</span>` : ""}
+        </button>
+      </td>
       <td class="center">
         <span class="pill ${u.is_active ? "in" : "out"}">${u.is_active ? "نشط" : "موقوف"}</span>
       </td>
@@ -397,4 +372,141 @@ function lastSeenText(value) {
   const days = Math.floor(hours / 24);
   if (days < 30) return `منذ ${fmtNum(days)} يوم`;
   return new Date(value).toLocaleDateString("ar-EG");
+}
+
+/* ------------------------- تخصيص صلاحيات مستخدم ------------------------- */
+// سماح/منع لشخص بعينه فوق صلاحيات دوره. القاعدة في can() على الخادم:
+// التخصيص إن وُجد، وإلا صلاحية الدور.
+
+async function loadOverrides() {
+  overrides = new Map();
+  let rows = [];
+  try { rows = await userPerms.all(); }
+  catch { return; }                  // 22_granular_permissions.sql لم يُشغَّل بعد
+  for (const r of rows) {
+    if (!overrides.has(r.user_id)) overrides.set(r.user_id, new Map());
+    overrides.get(r.user_id).set(r.permission_code, r.granted);
+  }
+}
+
+function overrideCount(userId) { return overrides.get(userId)?.size || 0; }
+
+function permGroups() {
+  const groups = [];
+  for (const p of perms) {
+    const last = groups[groups.length - 1];
+    if (last && last.name === p.category) last.items.push(p);
+    else groups.push({ name: p.category, items: [p] });
+  }
+  return groups;
+}
+
+function userPermsDialog(userId) {
+  const u = userRows.find((x) => x.id === userId);
+  if (!u) return;
+  const mine = () => overrides.get(userId) || new Map();
+  const fromRole = (code) => granted.has(key(u.role, code));
+
+  const rowHtml = (p) => {
+    const o = mine().get(p.code);
+    const state = o === undefined ? "role" : (o ? "allow" : "deny");
+    const effective = o === undefined ? fromRole(p.code) : o;
+    return `
+      <tr data-perm-row="${esc(p.code)}">
+        <td>${esc(p.label)}</td>
+        <td class="center"><span class="hint">${fromRole(p.code) ? "✓ مسموح" : "✗ ممنوع"}</span></td>
+        <td class="center">
+          <select data-perm="${esc(p.code)}" style="min-width:130px">
+            <option value="role"  ${state === "role"  ? "selected" : ""}>حسب الدور</option>
+            <option value="allow" ${state === "allow" ? "selected" : ""}>سماح</option>
+            <option value="deny"  ${state === "deny"  ? "selected" : ""}>منع</option>
+          </select>
+        </td>
+        <td class="center" data-effective>
+          <span class="pill ${effective ? "in" : "out"}">${effective ? "مسموح" : "ممنوع"}</span>
+        </td>
+      </tr>`;
+  };
+
+  const { root } = openModal({
+    title: `صلاحيات ${u.full_name}`,
+    bodyHtml: `
+      <p class="hint">
+        الدور: <b>${esc(roleLabel(u.role))}</b>. «حسب الدور» يأخذ صلاحية الدور كما في المصفوفة،
+        و«سماح» أو «منع» يخصّ هذا المستخدم وحده. التغيير يُحفظ فورًا ويُسجَّل في سجل التدقيق،
+        ويسري عند تحديث المستخدم للصفحة.
+      </p>
+      <div class="toolbar" style="margin-bottom:8px">
+        <input id="upSearch" placeholder="بحث في الصلاحيات" style="flex:1">
+        <button class="btn ghost small" id="upReset">رجوع الكل لحسب الدور</button>
+      </div>
+      <div class="table-wrap" style="max-height:60vh;overflow:auto">
+        <table>
+          <thead><tr><th>الصلاحية</th><th class="center">الدور</th>
+            <th class="center">لهذا المستخدم</th><th class="center">النتيجة</th></tr></thead>
+          <tbody>
+            ${permGroups().map((g) => `
+              <tr data-group><td colspan="4" style="font-weight:600;opacity:.75">${esc(g.name)}</td></tr>
+              ${g.items.map(rowHtml).join("")}`).join("")}
+          </tbody>
+        </table>
+      </div>`,
+  });
+
+  const repaintRow = (code) => {
+    const p = perms.find((x) => x.code === code);
+    const tr = root.querySelector(`[data-perm-row="${CSS.escape(code)}"]`);
+    if (p && tr) tr.outerHTML = rowHtml(p);
+  };
+
+  const refreshCount = () => paintUsers();
+
+  root.addEventListener("change", async (e) => {
+    const sel = e.target.closest("[data-perm]");
+    if (!sel) return;
+    const code = sel.dataset.perm;
+    const value = sel.value;
+    sel.disabled = true;
+    try {
+      if (value === "role") await userPerms.clear(userId, code);
+      else await userPerms.set(userId, code, value === "allow");
+      if (!overrides.has(userId)) overrides.set(userId, new Map());
+      if (value === "role") overrides.get(userId).delete(code);
+      else overrides.get(userId).set(code, value === "allow");
+      toast("تم حفظ الصلاحية");
+      if (userId === currentUser()?.id) await reloadMine();
+    } catch (err) {
+      toastError(err.message);           // الخادم رفض — يُعاد رسم الصف بحقيقته
+    }
+    repaintRow(code);
+    refreshCount();
+  });
+
+  root.querySelector("#upSearch").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    root.querySelectorAll("[data-perm-row]").forEach((tr) => {
+      tr.hidden = q && !tr.textContent.toLowerCase().includes(q);
+    });
+    root.querySelectorAll("[data-group]").forEach((g) => { g.hidden = Boolean(q); });
+  });
+
+  root.querySelector("#upReset").addEventListener("click", async () => {
+    const codes = [...mine().keys()];
+    if (!codes.length) return toast("لا توجد تخصيصات لهذا المستخدم");
+    const ok = await confirmDialog({
+      title: "رجوع لصلاحيات الدور",
+      message: `سيُلغى ${fmtNum(codes.length)} تخصيص ويعود المستخدم لصلاحيات دوره فقط.`,
+    });
+    if (!ok) return;
+    for (const code of codes) {
+      try {
+        await userPerms.clear(userId, code);
+        overrides.get(userId)?.delete(code);
+      } catch (err) { toastError(err.message); }
+      repaintRow(code);
+    }
+    toast("تم الرجوع لصلاحيات الدور");
+    if (userId === currentUser()?.id) await reloadMine();
+    refreshCount();
+  });
 }

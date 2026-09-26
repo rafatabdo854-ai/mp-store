@@ -3,7 +3,7 @@ import { byId, esc, fillTable, debounce, onClick } from "../core/dom.js";
 import { fmtDate, fmtNum } from "../core/format.js";
 import { get } from "../core/store.js";
 import { txns } from "../data/repo.js";
-import { can, canVoucher } from "../auth/roles.js";
+import { can, canVoucher, gate } from "../auth/roles.js";
 import { toast, toastError, confirmDialog } from "../core/ui.js";
 import { exportRows } from "../data/excel.js";
 import { printTable } from "./print.js";
@@ -69,6 +69,8 @@ function build() {
   });
   byId("logExport").addEventListener("click", exportCurrent);
   byId("logPrint").addEventListener("click", printCurrent);
+  gate(byId("logExport"), "export_log");
+  gate(byId("logPrint"), "print_log");
 
   onClick(byId("logBody"), "[data-del]", async (btn) => {
     const no = btn.dataset.del;

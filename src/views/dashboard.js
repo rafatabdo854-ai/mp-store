@@ -7,7 +7,7 @@ import { byId, esc, fillTable, onClick } from "../core/dom.js";
 import { fmtNum, fmtMoney, moneyHtml, moneyText, fmtDate, fmtDateTime } from "../core/format.js";
 import { reports } from "../data/repo.js";
 import { set, get } from "../core/store.js";
-import { can } from "../auth/roles.js";
+import { can, gate } from "../auth/roles.js";
 import { toast, toastError } from "../core/ui.js";
 import { exportRows } from "../data/excel.js";
 import { printTable } from "./print.js";
@@ -177,6 +177,7 @@ function build() {
   byId("reorderExport").onclick = exportReorder;
   byId("reorderPrint").onclick = printReorder;
   byId("negativeExport").onclick = exportNegative;
+  ["reorderExport", "reorderPrint", "negativeExport"].forEach((id) => gate(byId(id), "export_dashboard"));
 
   markPeriod();
   built = true;

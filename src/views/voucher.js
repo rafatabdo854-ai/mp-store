@@ -6,7 +6,7 @@ import { byId, esc, fillTable, onClick, debounce } from "../core/dom.js";
 import { todayISO, fmtDate, fmtNum, itemFullLabel, toInt, toNum } from "../core/format.js";
 import { get, set, on } from "../core/store.js";
 import { txns, lists } from "../data/repo.js";
-import { can, canVoucher } from "../auth/roles.js";
+import { can, canVoucher, gate } from "../auth/roles.js";
 import { toast, toastError, toastWarn, confirmDialog, withBusy, openModal } from "../core/ui.js";
 import { validate, rules, paintErrors, clearErrors } from "../core/validation.js";
 import { printTable } from "./print.js";
@@ -348,7 +348,8 @@ export function makeVoucherView(type) {
           <td>${esc(isIn ? v.party : v.project || v.party)}</td>
           <td>${esc(v.created_by_name || "-")}</td>
           <td><div class="row-actions">
-            <button class="btn ghost small" data-act="print" data-id="${esc(v.voucher_no)}">طباعة</button>
+            ${can("print_vouchers")
+              ? `<button class="btn ghost small" data-act="print" data-id="${esc(v.voucher_no)}">طباعة</button>` : ""}
             ${can("delete_voucher") && canVoucher(type)
               ? `<button class="btn ghost small" data-act="delete" data-id="${esc(v.voucher_no)}">حذف</button>` : ""}
           </div></td>

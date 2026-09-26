@@ -3,7 +3,7 @@ import { byId, fillTable, esc, debounce, onClick } from "../core/dom.js";
 import { fmtNum, moneyHtml, itemLabel, arSort } from "../core/format.js";
 import { get, on, set } from "../core/store.js";
 import { items as itemsRepo, lists } from "../data/repo.js";
-import { can } from "../auth/roles.js";
+import { can, gate } from "../auth/roles.js";
 import { toast, toastError, confirmDialog, openModal, withBusy } from "../core/ui.js";
 import { validate, rules, paintErrors } from "../core/validation.js";
 import { exportRows } from "../data/excel.js";
@@ -26,6 +26,8 @@ export function init() {
   byId("btnAddItem").addEventListener("click", () => itemForm(null));
   byId("btnExportItems").addEventListener("click", exportList);
   byId("btnPrintItems").addEventListener("click", printList);
+  gate(byId("btnExportItems"), "export_items");
+  gate(byId("btnPrintItems"), "print_items");
 
   onClick(byId("itemsBody"), "[data-act]", async (btn) => {
     const item = get("itemsById").get(btn.dataset.id);

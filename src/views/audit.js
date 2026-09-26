@@ -10,7 +10,7 @@
 import { byId, esc, fillTable, debounce, onClick } from "../core/dom.js";
 import { fmtDateTime, fmtNum } from "../core/format.js";
 import { audit, users } from "../data/repo.js";
-import { can } from "../auth/roles.js";
+import { can, gate } from "../auth/roles.js";
 import { toast, toastError, openModal, confirmDialog } from "../core/ui.js";
 import { exportRows } from "../data/excel.js";
 
@@ -181,6 +181,7 @@ function build() {
   });
 
   byId("auExport").addEventListener("click", exportCurrent);
+  gate(byId("auExport"), "export_audit");
 
   // تفاصيل الصف كاملة — بعض السجلات تحمل jsonb لا يتسع لعمود
   onClick(byId("auBody"), "[data-row]", (btn) => {

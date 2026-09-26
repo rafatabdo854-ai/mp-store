@@ -3,7 +3,7 @@ import { byId, esc, fillTable } from "../core/dom.js";
 import { fmtDate, fmtNum, fmtMoney, moneyText, todayISO, itemFullLabel, itemLabel } from "../core/format.js";
 import { get } from "../core/store.js";
 import { reports } from "../data/repo.js";
-import { can } from "../auth/roles.js";
+import { can, gate } from "../auth/roles.js";
 import { toast, toastError } from "../core/ui.js";
 import { exportRows } from "../data/excel.js";
 import { printTable } from "./print.js";
@@ -64,6 +64,16 @@ function build() {
       </div>
     </div>`;
 
+  // كل تقرير بصلاحيته: تُحذف الخيارات غير المسموحة
+  const kindSel = byId("rpKind");
+  [...kindSel.options].forEach((o) => { if (!can(`report_${o.value}`)) o.remove(); });
+  if (!kindSel.options.length) {
+    kindSel.innerHTML = `<option value="">لا توجد تقارير متاحة لك</option>`;
+    byId("rpRun").disabled = true;
+  }
+  gate(byId("rpExport"), "export_reports");
+  gate(byId("rpPrint"), "print_reports");
+
   byId("rpKind").addEventListener("change", toggleFields);
   byId("rpRun").addEventListener("click", run);
   byId("rpExport").addEventListener("click", async () => {
@@ -111,6 +121,7 @@ function show({ title, subtitle, headers, rows, cards = [] }) {
 
 async function run() {
   const kind = byId("rpKind").value;
+  if (!kind || !can(`report_${kind}`)) return toastError("ليس لديك صلاحية تشغيل هذا التقرير");
   const from = byId("rpFrom").value || monthStart();
   const to   = byId("rpTo").value || todayISO();
   if (from > to) return toastError("تاريخ البداية بعد تاريخ النهاية");

@@ -3,7 +3,7 @@ import { byId, esc, fillTable, debounce } from "../core/dom.js";
 import { fmtNum, fmtMoney, moneyHtml, itemLabel, arSort, toNum } from "../core/format.js";
 import { get, set } from "../core/store.js";
 import { items as itemsRepo } from "../data/repo.js";
-import { can } from "../auth/roles.js";
+import { can, gate } from "../auth/roles.js";
 import { toast, toastError } from "../core/ui.js";
 import { exportRows } from "../data/excel.js";
 import { printTable } from "./print.js";
@@ -55,6 +55,9 @@ function build() {
       headers: Object.keys(data[0]), rows: data.map((r) => Object.values(r)),
     });
   });
+
+  gate(byId("prExport"), "export_pricing");
+  gate(byId("prPrint"), "print_pricing");
 
   if (can("edit_price")) {
     byId("prBody").addEventListener("change", async (e) => {

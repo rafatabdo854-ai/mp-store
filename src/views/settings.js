@@ -3,7 +3,7 @@ import { byId, esc, fillTable, onClick } from "../core/dom.js";
 import { fmtNum } from "../core/format.js";
 import { get, set } from "../core/store.js";
 import { users, lists, settings as settingsRepo, items as itemsRepo, txns } from "../data/repo.js";
-import { can, roleLabel, roleOptions } from "../auth/roles.js";
+import { can, roleLabel, roleOptions, gate } from "../auth/roles.js";
 import { createUser, changePassword, currentUser } from "../auth/auth.js";
 import { toast, toastError, confirmDialog, openModal, withBusy } from "../core/ui.js";
 import { validate, rules, paintErrors } from "../core/validation.js";
@@ -45,19 +45,19 @@ function build() {
     <div class="panel">
       <h2>الموردون والمشاريع والفئات</h2>
       <div class="fields">
-        <div class="field">
+        <div class="field" id="fldSupplier">
           <label for="newSupplier">إضافة مورد</label>
           <div style="display:flex;gap:6px">
             <input id="newSupplier"><button class="btn ghost small" id="addSupplier">إضافة</button>
           </div>
         </div>
-        <div class="field">
+        <div class="field" id="fldProject">
           <label for="newProject">إضافة مشروع</label>
           <div style="display:flex;gap:6px">
             <input id="newProject"><button class="btn ghost small" id="addProject">إضافة</button>
           </div>
         </div>
-        <div class="field">
+        <div class="field" id="fldCategory">
           <label for="newCategory">إضافة فئة</label>
           <div style="display:flex;gap:6px">
             <input id="newCategory" placeholder="اسم الفئة">
@@ -70,7 +70,7 @@ function build() {
       <div class="chips" id="listsChips"></div>
     </div>
 
-    ${admin ? `
+    ${can("manage_settings") ? `
     <div class="panel">
       <h2>إعدادات النظام</h2>
       <div class="fields">
@@ -90,11 +90,11 @@ function build() {
       </div>
     </div>` : ""}
 
-    <div class="panel">
+    <div class="panel" id="pnlMaintenance">
       <h2>النسخ الاحتياطي والصيانة</h2>
       <div class="toolbar">
-        <button class="btn" id="btnBackup">تنزيل نسخة كاملة (Excel)</button>
-        ${can("manage_items") ? `<button class="btn ghost" id="btnRecalc">إعادة حساب كل الأرصدة</button>` : ""}
+        ${can("backup_data") ? `<button class="btn" id="btnBackup">تنزيل نسخة كاملة (Excel)</button>` : ""}
+        ${can("recalc_balances") ? `<button class="btn ghost" id="btnRecalc">إعادة حساب كل الأرصدة</button>` : ""}
       </div>
       <div class="hint">
         قاعدة البيانات نفسها محفوظة على خوادم Supabase وتُنسخ احتياطيًا تلقائيًا.
@@ -120,7 +120,7 @@ function build() {
   byId("myRole").value = roleLabel(me?.role);
 
   byId("btnChangePass").onclick = passwordDialog;
-  byId("btnBackup").onclick = backup;
+  byId("btnBackup") && (byId("btnBackup").onclick = backup);
   byId("btnRecalc") && (byId("btnRecalc").onclick = recalc);
   byId("btnAddUser") && (byId("btnAddUser").onclick = userDialog);
   byId("btnSaveSettings") && (byId("btnSaveSettings").onclick = saveSettings);
@@ -128,6 +128,13 @@ function build() {
   byId("addSupplier").onclick = () => addToList("supplier");
   byId("addProject").onclick  = () => addToList("project");
   byId("addCategory").onclick = () => addToList("category");
+  gate(byId("fldSupplier"), "add_supplier");
+  gate(byId("fldProject"), "add_project");
+  gate(byId("fldCategory"), "add_category");
+  // لوحة الصيانة كلها تختفي إن لم يبقَ فيها زر
+  if (!byId("btnBackup") && !byId("btnRecalc")) {
+    byId("pnlMaintenance").hidden = true;
+  }
 
   const usersBody = byId("usersBody");
   if (usersBody) {
@@ -165,8 +172,8 @@ export function render() {
   byId("listsSummary").textContent =
     `${fmtNum(get("suppliers").length)} مورد — ${fmtNum(get("projects").length)} مشروع — ${fmtNum(get("categories").length)} فئة`;
   paintChips();
-  if (can("manage_users")) {
-    loadUsers();
+  if (can("manage_users")) loadUsers();
+  if (can("manage_settings")) {
     const s = get("settings")?.stock || {};
     if (byId("setNegative")) byId("setNegative").checked = Boolean(s.allow_negative_stock);
     if (byId("setThreshold")) byId("setThreshold").value = s.default_threshold ?? 5;
@@ -345,6 +352,7 @@ async function recalc() {
 }
 
 async function backup() {
+  if (!can("backup_data")) return toastError("ليس لديك صلاحية تنزيل النسخة الاحتياطية");
   try {
     toast("جارٍ تجهيز النسخة...");
     const all = await txns.list({ page: 0, size: 5000 });
