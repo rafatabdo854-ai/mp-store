@@ -189,10 +189,16 @@ export function makeVoucherView(type) {
     if (!isIn) {
       const reserved = cart.filter((l) => l.item_id === item.id).reduce((s, l) => s + l.qty, 0);
       if (qty + reserved > item.balance) {
-        paintErrors(form, {
-          qty: `الرصيد لا يكفي. المتاح ${fmtNum(item.balance - reserved)} ${item.unit}`,
-        });
-        return;
+        // إعداد "السماح بالصرف حتى لو أصبح الرصيد سالبًا" — الخادم يطبّقه
+        // في apply_txn_to_balance، والواجهة كانت ترفض قبله دائمًا.
+        const allowNegative = Boolean(get("settings")?.stock?.allow_negative_stock);
+        if (!allowNegative) {
+          paintErrors(form, {
+            qty: `الرصيد لا يكفي. المتاح ${fmtNum(item.balance - reserved)} ${item.unit}`,
+          });
+          return;
+        }
+        toastWarn(`تنبيه: رصيد "${item.name}" سيصبح ${fmtNum(item.balance - reserved - qty)} ${item.unit}`);
       }
     }
 
