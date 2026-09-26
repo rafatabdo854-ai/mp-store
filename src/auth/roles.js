@@ -15,13 +15,24 @@ import { get, set } from "../core/store.js";
  * لم يُشغَّل بعد). بدونها يفقد كل مستخدم كل صلاحياته عند أول عطل شبكة،
  * وهو أسوأ من التوزيع القديم بمراحل.
  */
+// ما كان متاحًا للجميع قبل الصلاحيات التفصيلية (22_granular_permissions.sql)
+const BASIC = ["view_dashboard", "view_log", "view_reports",
+  "report_movement", "report_project", "report_top", "report_low",
+  "print_vouchers", "export_items", "print_items", "export_log", "print_log",
+  "export_reports", "print_reports", "export_dashboard", "backup_data"];
+const VOUCHERS = ["voucher_in", "voucher_out", "add_supplier", "add_project"];
+const ITEMS    = ["add_item", "manage_items", "add_category", "recalc_balances"];
+const PRICING  = ["view_pricing", "export_pricing", "print_pricing"];
+const ACCOUNT  = ["accounting", "export_accounting", "print_accounting"];
+
 const FALLBACK = {
-  admin:          ["manage_items", "edit_price", "view_pricing", "create_voucher",
-                   "delete_voucher", "stocktake", "accounting", "view_audit", "manage_users"],
-  deputy_manager: ["manage_items", "edit_price", "view_pricing", "create_voucher", "stocktake"],
-  accountant:     ["edit_price", "view_pricing", "delete_voucher", "accounting", "view_audit"],
-  staff:          ["create_voucher"],
-  viewer:         [],
+  admin:          [...BASIC, ...VOUCHERS, ...ITEMS, ...PRICING, ...ACCOUNT, "edit_price",
+                   "delete_voucher", "stocktake", "view_audit", "export_audit", "manage_users"],
+  deputy_manager: [...BASIC, ...VOUCHERS, ...ITEMS, ...PRICING, "edit_price", "stocktake"],
+  accountant:     [...BASIC, ...PRICING, ...ACCOUNT, "edit_price", "delete_voucher",
+                   "view_audit", "export_audit"],
+  staff:          [...BASIC, ...VOUCHERS],
+  viewer:         [...BASIC],
 };
 
 /** أسماء الأدوار المعروضة. كائن حيّ: تُملأ مفاتيحه عند التحميل،
@@ -45,28 +56,34 @@ export function myPermissions() {
 }
 
 /**
- * صلاحية الوارد/الصرف لكل مستخدم (profiles.can_receive / can_issue)
- * فوق صلاحية الدور create_voucher. القيمة الغائبة تُعامل كمسموح حتى لا
- * يُقفل أحد قبل تشغيل ترحيل قاعدة البيانات — والخادم هو من يمنع فعليًا.
+ * كل صلاحية تأتي جاهزة من my_permissions(): تخصيص المستخدم (سماح/منع)
+ * فوق صلاحيات دوره — محسوبة في قاعدة البيانات بنفس منطق can() هناك.
+ * create_voucher مشتقّة: وارد أو صرف.
  */
-export function canVoucher(type) {
-  if (!myPermissions().includes("create_voucher")) return false;
-  const flag = type === "in" ? "can_receive" : "can_issue";
-  return get("profile")?.[flag] !== false;
-}
-
-/** صلاحيتا voucher_in / voucher_out مشتقّتان لا تُخزَّنان في الجداول. */
 export const can = (action) => {
+  const list = myPermissions();
   if (action === "voucher_in")  return canVoucher("in");
   if (action === "voucher_out") return canVoucher("out");
-  // لوحة القيادة: مفتاح المستخدم وحده (profiles.can_view_dashboard)
-  if (action === "view_dashboard") return get("profile")?.can_view_dashboard !== false;
-  // رؤية الأسعار: صلاحية الدور + مفتاح المستخدم profiles.can_view_price
-  if (action === "view_pricing") {
-    return myPermissions().includes("view_pricing") && get("profile")?.can_view_price !== false;
+  if (action === "create_voucher") {
+    return list.includes("create_voucher") || list.includes("voucher_in") || list.includes("voucher_out");
   }
-  return myPermissions().includes(action);
+  return list.includes(action);
 };
+
+/** صلاحية نوع الإذن: in = voucher_in ، out = voucher_out */
+export function canVoucher(type) {
+  const list = myPermissions();
+  // قبل تشغيل 22_granular_permissions.sql كانت هناك صلاحية واحدة للنوعين
+  if (!list.includes("voucher_in") && !list.includes("voucher_out")) {
+    return list.includes("create_voucher");
+  }
+  return list.includes(type === "in" ? "voucher_in" : "voucher_out");
+}
+
+/** يُخفي عنصرًا لا يملك المستخدم صلاحيته (إن وُجد العنصر). */
+export function gate(node, action) {
+  if (node) node.hidden = !can(action);
+}
 
 /** تُستدعى من main.js بعد الدخول. تفشل بهدوء وتترك المصفوفة الاحتياطية. */
 export function applyPermissions(list) {
