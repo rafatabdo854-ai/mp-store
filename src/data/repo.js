@@ -186,7 +186,7 @@ export const lists = {
 export const users = {
   list() {
     return run(db().from("profiles")
-      .select("id,username,full_name,role,is_active,last_seen,can_receive,can_issue")
+      .select("id,username,full_name,role,is_active,last_seen,can_receive,can_issue,can_view_price")
       .order("full_name"));
   },
   updateRole(id, role) { return run(db().from("profiles").update({ role }).eq("id", id).select().single()); },
