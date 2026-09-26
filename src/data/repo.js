@@ -186,11 +186,13 @@ export const lists = {
 export const users = {
   list() {
     return run(db().from("profiles")
-      .select("id,username,full_name,role,is_active,last_seen")
+      .select("id,username,full_name,role,is_active,last_seen,can_receive,can_issue")
       .order("full_name"));
   },
   updateRole(id, role) { return run(db().from("profiles").update({ role }).eq("id", id).select().single()); },
   setActive(id, is_active) { return run(db().from("profiles").update({ is_active }).eq("id", id).select().single()); },
+  /** صلاحية الوارد/الصرف لمستخدم واحد — patch = { can_receive } أو { can_issue } */
+  setVoucherFlag(id, patch) { return run(db().from("profiles").update(patch).eq("id", id).select().single()); },
 };
 
 /* ------------------------- الأدوار والصلاحيات ------------------------- */
