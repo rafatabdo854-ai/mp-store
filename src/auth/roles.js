@@ -20,17 +20,18 @@ const BASIC = ["view_dashboard", "view_log", "view_log_in", "view_log_out", "vie
   "report_movement", "report_project", "report_top", "report_low",
   "print_vouchers", "export_items", "print_items", "export_log", "print_log",
   "export_reports", "print_reports", "export_dashboard", "backup_data",
-  "view_suppliers", "view_projects", "export_suppliers", "export_projects"];
+  "view_suppliers", "view_projects", "export_suppliers", "export_projects",
+  "view_categories", "export_categories"];
 const VOUCHERS = ["voucher_in", "voucher_out", "add_supplier", "add_project"];
 const ITEMS    = ["add_item", "manage_items", "add_category", "recalc_balances",
-  "edit_supplier", "block_supplier", "edit_project", "block_project"];
+  "edit_supplier", "block_supplier", "edit_project", "block_project", "edit_category"];
 const PRICING  = ["view_pricing", "export_pricing", "print_pricing"];
 const ACCOUNT  = ["accounting", "export_accounting", "print_accounting"];
 
 const FALLBACK = {
   admin:          [...BASIC, ...VOUCHERS, ...ITEMS, ...PRICING, ...ACCOUNT, "edit_price",
                    "delete_voucher", "stocktake", "view_audit", "export_audit", "manage_users",
-                   "delete_supplier", "delete_project"],
+                   "delete_supplier", "delete_project", "delete_category"],
   deputy_manager: [...BASIC, ...VOUCHERS, ...ITEMS, ...PRICING, "edit_price", "stocktake"],
   accountant:     [...BASIC, ...PRICING, ...ACCOUNT, "edit_price", "delete_voucher",
                    "view_audit", "export_audit"],
