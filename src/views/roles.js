@@ -14,6 +14,7 @@ import { fmtNum } from "../core/format.js";
 import { rbac, users } from "../data/repo.js";
 import { can, applyPermissions, applyRoles, roleLabel } from "../auth/roles.js";
 import { toast, toastError, confirmDialog, openModal } from "../core/ui.js";
+import { get, set } from "../core/store.js";
 import { currentUser } from "../auth/auth.js";
 import { onPresence, onlineUsers } from "../core/presence.js";
 
@@ -58,6 +59,7 @@ function build() {
       <div class="table-wrap">
         <table>
           <thead><tr><th>المستخدم</th><th>الدور</th>
+            <th class="center">إذن وارد</th><th class="center">إذن صرف</th>
             <th class="center">الحالة</th>
             ${can("view_presence") ? `<th class="center">الحضور</th>` : ""}</tr></thead>
           <tbody id="rbUsers"></tbody>
@@ -89,6 +91,29 @@ function build() {
     } catch (err) {
       sel.value = previous;          // الخادم رفض — أعد المعروض لحقيقته
       toastError(err.message);
+    }
+  });
+
+  // صلاحية الوارد/الصرف لكل مستخدم — كتابة فورية مثل المصفوفة
+  byId("rbUsers").addEventListener("change", async (e) => {
+    const box = e.target.closest("[data-user-flag]");
+    if (!box) return;
+    const id = box.dataset.userFlag;
+    const flag = box.dataset.flag;               // can_receive | can_issue
+    const wanted = box.checked;
+    box.disabled = true;
+    try {
+      await users.setVoucherFlag(id, { [flag]: wanted });
+      toast(wanted ? "تم منح الصلاحية" : "تم سحب الصلاحية");
+      if (id === currentUser()?.id) {
+        set({ profile: { ...get("profile"), [flag]: wanted } });
+        toast("تغيّرت صلاحياتك — حدّث الصفحة لتطبيق التغيير على القائمة");
+      }
+    } catch (err) {
+      box.checked = !wanted;                     // الخادم رفض — أعد المربع لحقيقته
+      toastError(err.message);
+    } finally {
+      box.disabled = !can("manage_users");
     }
   });
 
@@ -288,7 +313,7 @@ async function paintUsers() {
   try {
     rows = await users.list();
   } catch (err) {
-    byId("rbUsers").innerHTML = `<tr><td colspan="3" class="empty">${esc(err.message)}</td></tr>`;
+    byId("rbUsers").innerHTML = `<tr><td colspan="5" class="empty">${esc(err.message)}</td></tr>`;
     return;
   }
 
@@ -309,6 +334,12 @@ async function paintUsers() {
             </option>`).join("")}
         </select>
       </td>
+      ${["can_receive", "can_issue"].map((f) => `
+      <td class="center">
+        <input type="checkbox" data-user-flag="${esc(u.id)}" data-flag="${f}"
+               aria-label="${f === "can_receive" ? "إذن وارد" : "إذن صرف"}"
+               ${u[f] !== false ? "checked" : ""} ${can("manage_users") ? "" : "disabled"}>
+      </td>`).join("")}
       <td class="center">
         <span class="pill ${u.is_active ? "in" : "out"}">${u.is_active ? "نشط" : "موقوف"}</span>
       </td>

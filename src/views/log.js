@@ -3,7 +3,7 @@ import { byId, esc, fillTable, debounce, onClick } from "../core/dom.js";
 import { fmtDate, fmtNum } from "../core/format.js";
 import { get } from "../core/store.js";
 import { txns } from "../data/repo.js";
-import { can } from "../auth/roles.js";
+import { can, canVoucher } from "../auth/roles.js";
 import { toast, toastError, confirmDialog } from "../core/ui.js";
 import { exportRows } from "../data/excel.js";
 import { printTable } from "./print.js";
@@ -137,7 +137,9 @@ function paint() {
       <td>${esc(t.project || "-")}</td>
       <td>${esc(t.created_by_name || "-")}</td>
       ${can("delete_voucher")
-        ? `<td><button class="btn ghost small" data-del="${esc(t.voucher_no)}">حذف الإذن</button></td>` : ""}
+        ? `<td>${canVoucher(t.type)
+            ? `<button class="btn ghost small" data-del="${esc(t.voucher_no)}">حذف الإذن</button>` : ""}</td>`
+        : ""}
     </tr>`), 9, "لا توجد حركات مطابقة");
 
   const from = state.count ? state.page * APP.logPageSize + 1 : 0;
