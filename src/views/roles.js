@@ -27,6 +27,13 @@ let stopWatch = null;
 
 const key = (r, p) => `${r}|${p}`;
 
+/** مفاتيح لكل مستخدم في profiles — تُطبَّق فوق صلاحيات دوره */
+const USER_FLAGS = {
+  can_receive:    "إذن وارد",
+  can_issue:      "إذن صرف",
+  can_view_price: "رؤية الأسعار",
+};
+
 function build() {
   byId("view-roles").innerHTML = `
     <div class="panel">
@@ -60,6 +67,7 @@ function build() {
         <table>
           <thead><tr><th>المستخدم</th><th>الدور</th>
             <th class="center">إذن وارد</th><th class="center">إذن صرف</th>
+            <th class="center">رؤية الأسعار</th>
             <th class="center">الحالة</th>
             ${can("view_presence") ? `<th class="center">الحضور</th>` : ""}</tr></thead>
           <tbody id="rbUsers"></tbody>
@@ -313,7 +321,7 @@ async function paintUsers() {
   try {
     rows = await users.list();
   } catch (err) {
-    byId("rbUsers").innerHTML = `<tr><td colspan="5" class="empty">${esc(err.message)}</td></tr>`;
+    byId("rbUsers").innerHTML = `<tr><td colspan="6" class="empty">${esc(err.message)}</td></tr>`;
     return;
   }
 
@@ -334,10 +342,10 @@ async function paintUsers() {
             </option>`).join("")}
         </select>
       </td>
-      ${["can_receive", "can_issue"].map((f) => `
+      ${Object.entries(USER_FLAGS).map(([f, label]) => `
       <td class="center">
         <input type="checkbox" data-user-flag="${esc(u.id)}" data-flag="${f}"
-               aria-label="${f === "can_receive" ? "إذن وارد" : "إذن صرف"}"
+               aria-label="${label}"
                ${u[f] !== false ? "checked" : ""} ${can("manage_users") ? "" : "disabled"}>
       </td>`).join("")}
       <td class="center">
