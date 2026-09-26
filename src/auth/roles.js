@@ -16,7 +16,7 @@ import { get, set } from "../core/store.js";
  * وهو أسوأ من التوزيع القديم بمراحل.
  */
 // ما كان متاحًا للجميع قبل الصلاحيات التفصيلية (22_granular_permissions.sql)
-const BASIC = ["view_dashboard", "view_log", "view_reports",
+const BASIC = ["view_dashboard", "view_log", "view_log_in", "view_log_out", "view_reports",
   "report_movement", "report_project", "report_top", "report_low",
   "print_vouchers", "export_items", "print_items", "export_log", "print_log",
   "export_reports", "print_reports", "export_dashboard", "backup_data",
