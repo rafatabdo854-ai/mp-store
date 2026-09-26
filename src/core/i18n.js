@@ -640,6 +640,9 @@ const EN = {
   "بحث بالاسم أو البادئة": "Search by name or prefix",
   "لا توجد فئات بعد": "No categories yet",
 
+  "إدارة مخزن شركة الهنا إليكتريك": "El Hana Electric Store Management",
+  "تطوير": "Developed by",
+  "م. محمود فؤاد": "Eng. Mahmoud Fouad",
   // ---------- التقارير ----------
   "اختر التقرير": "Choose a report",
   "نوع التقرير": "Report type",
