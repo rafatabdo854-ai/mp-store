@@ -180,7 +180,7 @@ export const lists = {
   categories() { return run(db().from("categories").select("name,prefix").order("name")); },
   addSupplier(name) { return directory.saveSupplier(null, { name }); },
   addProject(name)  { return directory.saveProject(null, { name }); },
-  addCategory(name, prefix) { return run(db().from("categories").upsert({ name, prefix }).select()); },
+  addCategory(name, prefix) { return run(db().from("categories").insert({ name, prefix }).select()); },
 };
 
 /* ------------------------- الموردون والمشاريع ------------------------- */
@@ -206,6 +206,17 @@ export const directory = {
     return run(db().rpc("set_project_blocked", { p_name: name, p_blocked: blocked, p_reason: reason }));
   },
   deleteProject(name) { return run(db().rpc("delete_project", { p_name: name })); },
+};
+
+/* ------------------------- الفئات ------------------------- */
+// التعديل يسري على كل أصناف الفئة: اسم الفئة وأكواد الأصناف (25_categories.sql)
+export const categoriesRepo = {
+  /** [{name, items, active_items, total_balance}] */
+  usage() { return run(db().rpc("category_usage")); },
+  save(oldName, { name, prefix }) {
+    return run(db().rpc("save_category", { p_old_name: oldName, p_name: name, p_prefix: prefix }));
+  },
+  remove(name) { return run(db().rpc("delete_category", { p_name: name })); },
 };
 
 export const users = {
