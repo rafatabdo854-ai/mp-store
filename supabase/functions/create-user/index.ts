@@ -1,6 +1,7 @@
 // supabase/functions/create-user/index.ts
 //
 // إنشاء حساب مستخدم جديد — البديل عن signUp من المتصفح.
+// وتغيير كلمة مرور مستخدم من الإدارة (action = "reset_password").
 //
 // بعد إقفال التسجيل الذاتي في Supabase، لم يعد المتصفح يستطيع إنشاء
 // حسابات، وهذا هو المقصود. الإنشاء ينتقل إلى هنا: مفتاح service_role
@@ -57,17 +58,28 @@ Deno.serve(async (req) => {
 
   // الصلاحية تُقرأ من القاعدة، لا من أي شيء في الطلب
   const { data: perms } = await asCaller.rpc("my_permissions");
-  if (!Array.isArray(perms) || !perms.includes("manage_users")) {
-    return json({ error: "ليس لديك صلاحية إنشاء المستخدمين" }, 403);
-  }
+  if (!Array.isArray(perms)) return json({ error: "تعذّر قراءة صلاحياتك" }, 403);
 
-  // ---- ٢) تحقّق من المدخلات ----
   let body: Record<string, string>;
   try {
     body = await req.json();
   } catch {
     return json({ error: "طلب غير صالح" }, 400);
   }
+
+  const admin = createClient(URL_, SERVICE, { auth: { persistSession: false } });
+  const action = String(body.action ?? "create");
+
+  if (action === "reset_password") {
+    return resetPassword(admin, userData.user.id, perms, body);
+  }
+  if (action !== "create") return json({ error: "إجراء غير معروف" }, 400);
+
+  if (!perms.includes("manage_users")) {
+    return json({ error: "ليس لديك صلاحية إنشاء المستخدمين" }, 403);
+  }
+
+  // ---- ٢) تحقّق من المدخلات ----
 
   const username = String(body.username ?? "").trim().toLowerCase();
   const fullName = String(body.fullName ?? "").trim();
@@ -83,8 +95,6 @@ Deno.serve(async (req) => {
   if (password.length < 10) {
     return json({ error: "كلمة المرور يجب ألّا تقل عن ١٠ خانات" }, 400);
   }
-
-  const admin = createClient(URL_, SERVICE, { auth: { persistSession: false } });
 
   // الدور يجب أن يكون موجودًا في جدول الأدوار — لا نص حر
   const { data: roleRow } = await admin
@@ -126,6 +136,63 @@ Deno.serve(async (req) => {
     details: { username, role },
   });
 
+  // تنبيه تليجرام (26_account_alerts.sql) — فشله لا يُفشل الإنشاء
+  await admin.rpc("account_event", {
+    p_event: "created", p_actor: userData.user.id, p_target: created.user.id,
+  }).then(() => {}, () => {});
+
   return json({ id: created.user.id, username, role });
 });
+
+// ------------------------------------------------------------------
+// تغيير كلمة مرور مستخدم آخر (صلاحية reset_password)
+//
+//  - لا يغيّر أحد كلمته من هنا: لذلك زر "تغيير كلمة المرور" في حسابي،
+//    وهو يمر بجلسة صاحب الحساب نفسه.
+//  - حساب مدير النظام لا يغيّر كلمته إلا مدير نظام — وإلا صار من
+//    يُمنح reset_password قادرًا على الاستيلاء على حساب المدير.
+//  - بعد التغيير: فكّ القفل، إنهاء الجلسات، تدقيق، وتنبيه تليجرام
+//    (كلها داخل account_event في قاعدة البيانات).
+// ------------------------------------------------------------------
+// deno-lint-ignore no-explicit-any
+async function resetPassword(admin: any, callerId: string, perms: string[], body: Record<string, string>) {
+  if (!perms.includes("reset_password")) {
+    return json({ error: "ليس لديك صلاحية تغيير كلمات مرور المستخدمين" }, 403);
+  }
+
+  const targetId = String(body.userId ?? "").trim();
+  const password = String(body.password ?? "");
+
+  if (!/^[0-9a-f-]{36}$/i.test(targetId)) return json({ error: "مستخدم غير صالح" }, 400);
+  if (targetId === callerId) {
+    return json({ error: "لتغيير كلمة مرورك استخدم «تغيير كلمة المرور» في حسابي" }, 400);
+  }
+  if (password.length < 10) {
+    return json({ error: "كلمة المرور يجب ألّا تقل عن ١٠ خانات" }, 400);
+  }
+
+  const [{ data: target }, { data: caller }] = await Promise.all([
+    admin.from("profiles").select("id,role,username").eq("id", targetId).maybeSingle(),
+    admin.from("profiles").select("id,role").eq("id", callerId).maybeSingle(),
+  ]);
+  if (!target) return json({ error: "المستخدم غير موجود" }, 404);
+
+  if (target.role === "admin" && caller?.role !== "admin") {
+    return json({ error: "كلمة مرور مدير النظام لا يغيّرها إلا مدير نظام" }, 403);
+  }
+
+  const { error: updErr } = await admin.auth.admin.updateUserById(targetId, { password });
+  if (updErr) {
+    const weak = /weak|short|characters/i.test(updErr.message);
+    return json({ error: weak ? "كلمة المرور ضعيفة — استخدم حروفًا وأرقامًا" : updErr.message }, 400);
+  }
+
+  // التدقيق والتنبيه وإنهاء الجلسات. كلمة المرور تغيّرت فعلًا، فلو فشل
+  // هذا الجزء نُعيد نجاحًا مع تحذير بدل خطأ يوهم أنها لم تتغيّر.
+  const { error: evErr } = await admin.rpc("account_event", {
+    p_event: "password_reset", p_actor: callerId, p_target: targetId,
+  });
+
+  return json({ ok: true, username: target.username, warning: evErr ? evErr.message : null });
+}
 
