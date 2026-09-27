@@ -180,6 +180,40 @@ export async function createUser({ username, fullName, password, role }) {
   return out;
 }
 
+/**
+ * تغيير كلمة مرور مستخدم آخر من الإدارة (صلاحية reset_password).
+ * يمر بنفس دالة الخادم Create-user مع action = "reset_password"،
+ * لأن تغيير كلمة مرور غيرك يحتاج مفتاح service_role الذي لا يغادر الخادم.
+ */
+export async function adminResetPassword(userId, password) {
+  const { data: { session } } = await db().auth.getSession();
+  if (!session) throw new AppError("انتهت الجلسة. سجّل الدخول من جديد.", "AUTH");
+
+  const { url } = resolveConfig();
+  let res;
+  try {
+    res = await fetch(`${url}/functions/v1/${CREATE_USER_FN}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ action: "reset_password", userId, password }),
+    });
+  } catch {
+    throw new AppError("تعذّر الوصول إلى الخادم. تأكد من الاتصال.", "NETWORK");
+  }
+
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 404 && !out.error) {
+      throw new AppError("دالة الخادم غير منشورة بعد.", "NOT_DEPLOYED");
+    }
+    throw new AppError(out.error || "تعذّر تغيير كلمة المرور", "RESET_PASSWORD");
+  }
+  return out;
+}
+
 /* ---------- وقت بدء الجلسة (يستخدمه session-guard لسقف الـ 12 ساعة) ---------- */
 const LOGIN_AT_KEY = "mpstore.loginAt";
 function markLoginNow() {

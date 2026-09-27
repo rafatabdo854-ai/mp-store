@@ -30,7 +30,7 @@ const ACCOUNT  = ["accounting", "export_accounting", "print_accounting"];
 
 const FALLBACK = {
   admin:          [...BASIC, ...VOUCHERS, ...ITEMS, ...PRICING, ...ACCOUNT, "edit_price",
-                   "delete_voucher", "stocktake", "view_audit", "export_audit", "manage_users",
+                   "delete_voucher", "stocktake", "view_audit", "export_audit", "manage_users", "reset_password",
                    "delete_supplier", "delete_project", "delete_category"],
   deputy_manager: [...BASIC, ...VOUCHERS, ...ITEMS, ...PRICING, "edit_price", "stocktake"],
   accountant:     [...BASIC, ...PRICING, ...ACCOUNT, "edit_price", "delete_voucher",
