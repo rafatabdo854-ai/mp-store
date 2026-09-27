@@ -22,6 +22,9 @@ const ACTIONS = {
   update: "تعديل",
   delete: "حذف",
   post: "ترحيل",
+  password_reset: "تغيير كلمة مرور",
+  block: "إيقاف",
+  unblock: "إعادة تفعيل",
 };
 
 const ENTITIES = {
@@ -30,6 +33,9 @@ const ENTITIES = {
   voucher_review: "مراجعة محاسبية",
   item: "صنف",
   profile: "مستخدم",
+  project: "مشروع",
+  supplier: "مورد",
+  user_permission: "صلاحية مستخدم",
 };
 
 const EVENTS = {

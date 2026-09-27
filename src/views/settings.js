@@ -4,7 +4,7 @@ import { fmtNum } from "../core/format.js";
 import { get, set } from "../core/store.js";
 import { users, lists, settings as settingsRepo, items as itemsRepo, txns } from "../data/repo.js";
 import { can, roleLabel, roleOptions, gate } from "../auth/roles.js";
-import { createUser, changePassword, currentUser } from "../auth/auth.js";
+import { createUser, changePassword, adminResetPassword, currentUser } from "../auth/auth.js";
 import { toast, toastError, confirmDialog, openModal, withBusy } from "../core/ui.js";
 import { validate, rules, paintErrors } from "../core/validation.js";
 import { exportSheets } from "../data/excel.js";
@@ -14,6 +14,7 @@ let built = false;
 
 function build() {
   const admin = can("manage_users");
+  const usersPanel = admin || can("reset_password");
   byId("view-settings").innerHTML = `
     <div class="panel">
       <h2>حسابي</h2>
@@ -26,12 +27,12 @@ function build() {
       </div>
     </div>
 
-    ${admin ? `
+    ${usersPanel ? `
     <div class="panel">
       <div class="panel-head">
         <h2 style="margin:0">المستخدمون</h2>
         <span class="spacer"></span>
-        <button class="btn small" id="btnAddUser">إضافة مستخدم</button>
+        ${admin ? `<button class="btn small" id="btnAddUser">إضافة مستخدم</button>` : ""}
       </div>
       <div class="table-wrap">
         <table>
@@ -107,6 +108,10 @@ function build() {
         try { await users.updateRole(id, role); toast("تم تحديث الدور"); loadUsers(); }
         catch (err) { toastError(err.message); }
       }
+      if (btn.dataset.act === "password") {
+        resetPasswordDialog(id, btn.dataset.name, btn.dataset.username);
+        return;
+      }
       if (btn.dataset.act === "toggle") {
         const active = btn.dataset.active === "true";
         const ok = await confirmDialog({
@@ -131,7 +136,7 @@ function build() {
 
 export function render() {
   if (!built) build();
-  if (can("manage_users")) loadUsers();
+  if (can("manage_users") || can("reset_password")) loadUsers();
   if (can("manage_settings")) {
     const s = get("settings")?.stock || {};
     if (byId("setNegative")) byId("setNegative").checked = Boolean(s.allow_negative_stock);
@@ -143,18 +148,24 @@ export function render() {
 async function loadUsers() {
   try {
     const rows = await users.list();
+    const me = currentUser();
     fillTable(byId("usersBody"), rows.map((u) => `
       <tr>
         <td>${esc(u.full_name)}</td>
         <td class="code">${esc(u.username)}</td>
-        <td><select data-user="${esc(u.id)}" style="max-width:170px">
+        <td><select data-user="${esc(u.id)}" style="max-width:170px" ${can("manage_users") ? "" : "disabled"}>
           ${roleOptions().map(({ code, label }) =>
             `<option value="${code}" ${u.role === code ? "selected" : ""}>${esc(label)}</option>`).join("")}
         </select></td>
         <td class="center">${u.is_active
           ? `<span class="pill ok">نشط</span>` : `<span class="pill zero">موقوف</span>`}</td>
-        <td><button class="btn ghost small" data-act="toggle" data-id="${esc(u.id)}"
-             data-active="${u.is_active}">${u.is_active ? "إيقاف" : "تفعيل"}</button></td>
+        <td style="white-space:nowrap">
+          ${can("manage_users") ? `<button class="btn ghost small" data-act="toggle" data-id="${esc(u.id)}"
+             data-active="${u.is_active}">${u.is_active ? "إيقاف" : "تفعيل"}</button>` : ""}
+          ${can("reset_password") && u.id !== me?.id ? `<button class="btn ghost small" data-act="password"
+             data-id="${esc(u.id)}" data-name="${esc(u.full_name)}" data-username="${esc(u.username)}"
+             title="تغيير كلمة المرور">🔑 كلمة المرور</button>` : ""}
+        </td>
       </tr>`), 5, "لا يوجد مستخدمون");
   } catch (err) { toastError(err.message); }
 }
@@ -171,7 +182,7 @@ function userDialog() {
         </div>
         <div class="field">
           <label class="req" for="u_user">اسم المستخدم</label>
-          <input id="u_user" data-field="username" dir="ltr" placeholder="ahmed.m">
+          <input id="u_user" data-field="username" dir="ltr" placeholder="user.name">
           <div class="field-error" data-error-for="username"></div>
         </div>
         <div class="field">
@@ -198,7 +209,7 @@ function userDialog() {
         const result = validate(values, {
           fullName: [rules.required("أدخل الاسم"), rules.minLen(3)],
           username: [rules.required("أدخل اسم المستخدم"), rules.username()],
-          password: [rules.required("أدخل كلمة المرور"), rules.minLen(6, "كلمة المرور ٦ أحرف على الأقل")],
+          password: [rules.required("أدخل كلمة المرور"), rules.minLen(10, "كلمة المرور ١٠ خانات على الأقل")],
         });
         paintErrors(form, result.errors);
         if (!result.ok) return;
@@ -214,6 +225,74 @@ function userDialog() {
       },
     }],
   });
+}
+
+/** تغيير كلمة مرور مستخدم آخر — صلاحية reset_password */
+function resetPasswordDialog(userId, fullName, username) {
+  openModal({
+    title: `تغيير كلمة مرور ${fullName}`,
+    bodyHtml: `
+      <form id="resetForm" class="fields" novalidate>
+        <div class="field full">
+          <label>المستخدم</label>
+          <input value="${esc(fullName)} (${esc(username)})" readonly>
+        </div>
+        <div class="field full">
+          <label class="req" for="r_new">كلمة المرور الجديدة</label>
+          <div style="display:flex;gap:6px">
+            <input id="r_new" data-field="password" type="text" dir="ltr" autocomplete="new-password" style="flex:1">
+            <button type="button" class="btn ghost small" id="r_gen">توليد</button>
+          </div>
+          <div class="field-error" data-error-for="password"></div>
+        </div>
+        <div class="field full">
+          <label class="req" for="r_confirm">تأكيد كلمة المرور</label>
+          <input id="r_confirm" data-field="confirm" type="text" dir="ltr" autocomplete="new-password">
+          <div class="field-error" data-error-for="confirm"></div>
+        </div>
+      </form>
+      <div class="hint">
+        ١٠ خانات على الأقل. بعد الحفظ تُنهى جلسات المستخدم المفتوحة ويُفكّ قفل حسابه إن كان مقفولًا،
+        ويُسجَّل التغيير في سجل التدقيق ويصل تنبيه على تليجرام. أبلغ المستخدم بكلمته الجديدة بنفسك.
+      </div>`,
+    actions: [{
+      label: "حفظ كلمة المرور",
+      onClick: async (root, close) => {
+        const form = root.querySelector("#resetForm");
+        const values = {
+          password: form.querySelector("#r_new").value,
+          confirm: form.querySelector("#r_confirm").value,
+        };
+        const result = validate(values, {
+          password: [rules.required("أدخل كلمة المرور"), rules.minLen(10, "١٠ خانات على الأقل")],
+          confirm: [(v, all) => (v !== all.password ? "كلمتا المرور غير متطابقتين" : null)],
+        });
+        paintErrors(form, result.errors);
+        if (!result.ok) return;
+
+        await withBusy(root.querySelector("[data-action='0']"), async () => {
+          try {
+            const out = await adminResetPassword(userId, values.password);
+            toast(`تم تغيير كلمة مرور ${fullName}`);
+            if (out?.warning) toastError(`تغيّرت الكلمة، لكن تعذّر التسجيل/التنبيه: ${out.warning}`);
+            close();
+          } catch (err) { toastError(err.message); }
+        }, "جارٍ الحفظ...");
+      },
+    }],
+  }).root.querySelector("#r_gen").addEventListener("click", (e) => {
+    const form = e.target.closest("form");
+    const pwd = generatePassword();
+    form.querySelector("#r_new").value = pwd;
+    form.querySelector("#r_confirm").value = pwd;
+  });
+}
+
+// كلمة مرور عشوائية سهلة الإملاء: بلا 0/O ولا 1/l/I
+function generatePassword(len = 12) {
+  const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint32Array(len));
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
 }
 
 function passwordDialog() {
